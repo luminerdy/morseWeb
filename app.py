@@ -4,35 +4,44 @@ Derived from morsePi (https://github.com/luminerdy/morsePi). The
 spacebar is the keyer: the browser captures key timing, plays audio,
 and posts results here. No GPIO, LEDs, or station hardware.
 
-Phase 1: single-user, SQLite storage. Run locally:
+Phase 2: real accounts (admin/parent/student), parent-managed child
+accounts, per-user data isolation, CSRF + rate limiting. Run locally:
 
     python3 app.py
 
-then open http://localhost:5000
+then open http://localhost:5000. Environment:
+
+    MORSEWEB_SECRET_KEY     session/token signing key (required in prod)
+    MORSEWEB_SECURE_COOKIES set to 1 behind HTTPS
 """
 
+import os
+
 from flask import Flask, jsonify, redirect, render_template, request, url_for
+from flask_login import current_user, login_required
 
 import learning
 import storage
+from extensions import csrf, limiter, login_manager
 from learning import (
     available_word_practice_words,
     bonus_sprint_summary,
     choose_bonus_sprint_target,
     choose_new_practice_target,
+    default_morse_timing_settings,
     effort_summary,
     get_learning_overall,
     get_morse_timing,
+    get_practice_feedback,
     get_practice_letter_morse,
     get_practice_letters_for_mode,
+    get_practice_target,
     get_practice_timing,
     get_progress_mode_details,
     get_read_choices,
     get_unlocked_practice_letters,
     limited_text,
     load_all_effort_attempts,
-    normalize_morse_timing,
-    normalize_word_morse,
     practice_mode_score,
     practice_modes,
     progress_summary,
@@ -48,13 +57,38 @@ from practice_progress import record_attempt
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 16 * 1024
+app.config["SECRET_KEY"] = os.environ.get("MORSEWEB_SECRET_KEY", "dev-only-not-secret")
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+app.config["SESSION_COOKIE_SECURE"] = os.environ.get("MORSEWEB_SECURE_COOKIES") == "1"
+
+csrf.init_app(app)
+limiter.init_app(app)
+login_manager.init_app(app)
+login_manager.login_view = "auth.login"
+login_manager.login_message = "Please log in first."
+
+import admin as admin_module
+import auth as auth_module
+import family as family_module
+
+app.register_blueprint(auth_module.bp)
+app.register_blueprint(family_module.bp)
+app.register_blueprint(admin_module.bp)
 
 MAX_MESSAGE_CHARS = 160
 MAX_ANSWER_CHARS = 20
 MAX_WORD_CHARS = 20
 
-last_message = ""
-last_morse = ""
+
+@app.before_request
+def scope_storage_to_current_user():
+    """Every document/attempt query in this request belongs to the
+    logged-in user; no cross-request state."""
+    if current_user.is_authenticated:
+        storage.set_current_user(current_user.id)
+    else:
+        storage.clear_current_user()
 
 
 def get_practice_mode():
@@ -68,7 +102,7 @@ def get_practice_mode():
 
 
 def attempt_metadata():
-    return {"student_id": storage.DEFAULT_USER_SLUG}
+    return {"student_id": current_user.slug}
 
 
 def safe_next_url(default_endpoint="practice", **default_values):
@@ -85,12 +119,12 @@ def render_practice_template(template_name):
     practice_letters = get_practice_letters_for_mode(mode)
     overall = get_learning_overall(practice_letters)
 
-    if learning.practice_target not in practice_letters:
+    if get_practice_target() not in practice_letters:
         choose_new_practice_target(mode)
 
-    target = learning.practice_target
+    target = get_practice_target()
     expected_morse = text_to_morse(target)
-    feedback = learning.practice_feedback
+    feedback = get_practice_feedback()
 
     if not feedback and overall["learning_letters"]:
         letters = " ".join(overall["learning_letters"])
@@ -122,7 +156,7 @@ def render_practice_template(template_name):
 
 def practice_prompt_payload(mode):
     practice_letters = get_practice_letters_for_mode(mode)
-    target = learning.practice_target
+    target = get_practice_target()
 
     return {
         "mode": mode,
@@ -138,21 +172,25 @@ def practice_prompt_payload(mode):
 
 @app.route("/", methods=["GET", "POST"])
 def index():
-    global last_message, last_morse
-
+    message = ""
     if request.method == "POST":
-        last_message = limited_text(request.form.get("message", ""), MAX_MESSAGE_CHARS)
-        last_morse = text_to_morse(last_message)
+        message = limited_text(request.form.get("message", ""), MAX_MESSAGE_CHARS)
+
+    if current_user.is_authenticated:
+        timing = get_morse_timing()
+    else:
+        timing = get_morse_timing(default_morse_timing_settings())
 
     return render_template(
         "index.html",
-        message=last_message,
-        morse=last_morse,
-        timing=get_morse_timing(),
+        message=message,
+        morse=text_to_morse(message),
+        timing=timing,
     )
 
 
 @app.route("/timing-settings", methods=["POST"])
+@login_required
 def timing_settings():
     save_morse_timing_settings({
         "character_wpm": request.form.get("character_wpm"),
@@ -163,11 +201,13 @@ def timing_settings():
 
 
 @app.route("/practice")
+@login_required
 def practice():
     return render_practice_template("practice.html")
 
 
 @app.route("/practice/new", methods=["POST"])
+@login_required
 def practice_new():
     mode = get_practice_mode()
     choose_new_practice_target(mode)
@@ -175,6 +215,7 @@ def practice_new():
 
 
 @app.route("/practice/next", methods=["POST"])
+@login_required
 def practice_next():
     mode = get_practice_mode()
     choose_new_practice_target(mode)
@@ -182,20 +223,22 @@ def practice_next():
 
 
 @app.route("/practice/retry", methods=["POST"])
+@login_required
 def practice_retry():
     mode = get_practice_mode()
     practice_letters = get_practice_letters_for_mode(mode)
 
-    if learning.practice_target not in practice_letters:
+    if get_practice_target() not in practice_letters:
         choose_new_practice_target(mode)
 
     return jsonify(practice_prompt_payload(mode))
 
 
 @app.route("/practice/result", methods=["POST"])
+@login_required
 def practice_result():
     data = request.get_json(silent=True) or {}
-    letter = limited_text(data.get("target", learning.practice_target), 1).upper()
+    letter = limited_text(data.get("target", get_practice_target()), 1).upper()
     mode = str(data.get("mode", "send"))
     answer = limited_text(data.get("answer", ""), MAX_ANSWER_CHARS)
     actual_morse = str(data.get("actual_morse", "") or "").strip()
@@ -204,7 +247,7 @@ def practice_result():
     if mode not in practice_modes:
         mode = "send"
 
-    expected_morse = normalize_word_morse(text_to_morse(letter))
+    expected_morse = learning.normalize_word_morse(text_to_morse(letter))
 
     if mode in ("read", "listen"):
         answer, is_correct = server_checked_letter_answer(letter, answer)
@@ -247,10 +290,11 @@ def practice_result():
 
 
 @app.route("/words/result", methods=["POST"])
+@login_required
 def words_result():
     data = request.get_json(silent=True) or {}
     word = limited_text(data.get("word", ""), MAX_WORD_CHARS).upper()
-    actual_morse = normalize_word_morse(str(data.get("actual_morse", "") or ""))
+    actual_morse = learning.normalize_word_morse(str(data.get("actual_morse", "") or ""))
     expected_morse, actual_morse, is_correct = server_checked_keying_result(word, actual_morse)
     decoded = morse_to_text(actual_morse).upper() if actual_morse else ""
     elapsed_ms = data.get("elapsed_ms")
@@ -283,6 +327,7 @@ def words_result():
 
 
 @app.route("/bonus/next", methods=["POST"])
+@login_required
 def bonus_next():
     target = choose_bonus_sprint_target()
 
@@ -294,10 +339,11 @@ def bonus_next():
 
 
 @app.route("/bonus/result", methods=["POST"])
+@login_required
 def bonus_result():
     data = request.get_json(silent=True) or {}
     session_id = str(data.get("session_id", "")).strip()
-    letter = limited_text(data.get("target", learning.practice_target), 1).upper()
+    letter = limited_text(data.get("target", get_practice_target()), 1).upper()
     expected_morse, actual_morse, is_correct = server_checked_keying_result(
         letter,
         str(data.get("actual_morse", "") or "").strip(),
@@ -334,6 +380,7 @@ def bonus_result():
 
 
 @app.route("/progress")
+@login_required
 def progress():
     mode = get_practice_mode()
     practice_letters = get_unlocked_practice_letters()

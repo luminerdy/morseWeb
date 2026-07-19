@@ -2,6 +2,15 @@ function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+function csrfHeaders(extra) {
+    const meta = document.querySelector('meta[name="csrf-token"]');
+    const headers = Object.assign({}, extra);
+    if (meta && meta.content) {
+        headers["X-CSRFToken"] = meta.content;
+    }
+    return headers;
+}
+
 let practiceCheckTimer = null;
 let lastCheckedPracticeMorse = "";
 let pendingPracticeMorse = "";
@@ -617,9 +626,9 @@ async function recordWordResult(target, correct, actualMorse, expectedMorse, dec
     try {
         await fetch("/words/result", {
             method: "POST",
-            headers: {
+            headers: csrfHeaders({
                 "Content-Type": "application/json"
-            },
+            }),
             body: JSON.stringify({
                 word: target,
                 correct,
@@ -765,9 +774,9 @@ async function recordPracticeResult(target, correct, answer = "") {
     try {
         const response = await fetch(bonus ? "/bonus/result" : "/practice/result", {
             method: "POST",
-            headers: {
+            headers: csrfHeaders({
                 "Content-Type": "application/json"
-            },
+            }),
             body: JSON.stringify({
                 target,
                 correct,
@@ -796,7 +805,8 @@ async function loadNextPracticePrompt() {
     try {
         const bonus = getBonusConfig();
         const response = await fetch(bonus ? "/bonus/next" : `/practice/next?mode=${encodeURIComponent(getPracticeMode())}`, {
-            method: "POST"
+            method: "POST",
+            headers: csrfHeaders()
         });
         const data = await response.json();
 
@@ -834,7 +844,8 @@ async function loadNextPracticePrompt() {
 async function retryPracticePrompt() {
     try {
         const response = await fetch(`/practice/retry?mode=${encodeURIComponent(getPracticeMode())}`, {
-            method: "POST"
+            method: "POST",
+            headers: csrfHeaders()
         });
         const data = await response.json();
 

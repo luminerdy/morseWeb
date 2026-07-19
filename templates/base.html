@@ -1,0 +1,26 @@
+<!doctype html>
+<html>
+<head>
+    <title>{% block title %}morseWeb{% endblock %} - Pappy's Internet Telegraph</title>
+    <link rel="stylesheet" href="/static/style.css?v=2">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+</head>
+<body>
+    <div class="app-shell">
+        <header class="app-header">
+            <div>
+                <p class="eyebrow">Morse Station</p>
+                <h1>{% block heading %}Pappy's Internet Telegraph{% endblock %}</h1>
+            </div>
+
+            {% include "_nav.html" %}
+        </header>
+
+        <main class="dashboard-grid">
+            {% include "_flash.html" %}
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+</body>
+</html>

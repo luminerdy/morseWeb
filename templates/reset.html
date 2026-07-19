@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Reset password{% endblock %}
+{% block heading %}Set New Password{% endblock %}
+{% block content %}
+    <section class="panel auth-panel">
+        <div class="section-heading">
+            <h2>Choose a new password</h2>
+        </div>
+
+        <form method="post" action="/reset/{{ token }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+            <label for="password">New password (8+ characters)</label>
+            <input id="password" name="password" type="password" required
+                   minlength="8" autocomplete="new-password" autofocus>
+
+            <label for="confirm">Confirm password</label>
+            <input id="confirm" name="confirm" type="password" required
+                   minlength="8" autocomplete="new-password">
+
+            <div class="action-row">
+                <button type="submit" class="button primary">Save password</button>
+            </div>
+        </form>
+    </section>
+{% endblock %}

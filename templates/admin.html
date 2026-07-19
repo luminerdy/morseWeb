@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Admin{% endblock %}
+{% block heading %}Station Admin{% endblock %}
+{% block content %}
+    <section class="panel">
+        <div class="section-heading">
+            <h2>All Users</h2>
+            <span class="panel-meta">{{ users | length }} accounts</span>
+        </div>
+
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Username</th>
+                    <th>Email</th>
+                    <th>Role</th>
+                    <th>Tries</th>
+                    <th>Last practice</th>
+                    <th>Backups</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for user in users %}
+                    <tr>
+                        <td>{{ user.name }}</td>
+                        <td>{{ user.slug }}</td>
+                        <td>{{ user.email or "-" }}{% if user.email and not user.email_verified %} (unverified){% endif %}</td>
+                        <td>{{ user.role }}</td>
+                        <td>{{ user.usage.attempts }}</td>
+                        <td>{{ user.usage.last_attempt[:10] if user.usage.last_attempt else "Never" }}</td>
+                        <td>{{ user.backups | length }}</td>
+                        <td>{{ "Active" if user.is_active else "Deactivated" }}</td>
+                        <td>
+                            <form method="post" action="/admin/users/{{ user.id }}/reset" class="inline-form"
+                                  onsubmit="return confirm('Back up and reset all progress for {{ user.name }}?')">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="button secondary">Reset progress</button>
+                            </form>
+                            {% if user.id != current_user.id %}
+                                <form method="post" action="/admin/users/{{ user.id }}/active" class="inline-form">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="button secondary">
+                                        {{ "Deactivate" if user.is_active else "Reactivate" }}
+                                    </button>
+                                </form>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+{% endblock %}

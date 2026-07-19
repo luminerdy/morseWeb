@@ -1,0 +1,20 @@
+<nav class="nav-row" aria-label="Primary navigation">
+    <a href="/">Home</a>
+    {% if current_user.is_authenticated %}
+        <a href="/practice">Practice</a>
+        <a href="/progress">Progress</a>
+        {% if current_user.role in ("parent", "admin") %}
+            <a href="/family">Family</a>
+        {% endif %}
+        {% if current_user.role == "admin" %}
+            <a href="/admin">Admin</a>
+        {% endif %}
+        <form method="post" action="/logout" class="inline-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="nav-logout">Log out ({{ current_user.name }})</button>
+        </form>
+    {% else %}
+        <a href="/login">Log in</a>
+        <a href="/signup">Sign up</a>
+    {% endif %}
+</nav>

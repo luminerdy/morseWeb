@@ -2,8 +2,9 @@
 <html>
 <head>
     <title>Progress - morseWeb</title>
-    <link rel="stylesheet" href="/static/style.css?v=1">
+    <link rel="stylesheet" href="/static/style.css?v=2">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
 </head>
 <body>
     <div class="app-shell">
@@ -13,14 +14,11 @@
                 <h1>Progress</h1>
             </div>
 
-            <nav class="nav-row" aria-label="Primary navigation">
-                <a href="/">Home</a>
-                <a href="/practice?mode={{ mode }}">Practice</a>
-                <a class="active" href="/progress?mode={{ mode }}">Progress</a>
-            </nav>
+            {% include "_nav.html" %}
         </header>
 
         <main class="progress-page">
+            {% include "_flash.html" %}
             <section class="panel">
                 <div class="section-heading">
                     <h2>Operator Level {{ overall.level }}</h2>

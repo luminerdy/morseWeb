@@ -2,8 +2,9 @@
 <html>
 <head>
     <title>Practice - morseWeb</title>
-    <link rel="stylesheet" href="/static/style.css?v=1">
+    <link rel="stylesheet" href="/static/style.css?v=2">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
 </head>
 <body data-tone-hz="{{ timing.tone_hz }}"
       data-dot-ms="{{ timing.dot_ms }}"
@@ -19,14 +20,11 @@
                 <h1>Practice Mode</h1>
             </div>
 
-            <nav class="nav-row" aria-label="Primary navigation">
-                <a href="/">Home</a>
-                <a class="active" href="/practice">Practice</a>
-                <a href="/progress?mode={{ mode }}">Progress</a>
-            </nav>
+            {% include "_nav.html" %}
         </header>
 
         <main class="dashboard-grid">
+            {% include "_flash.html" %}
             <section class="panel practice-panel"
                      data-practice-mode="{{ mode }}"
                      data-practice-target="{{ target }}"
@@ -82,6 +80,7 @@
                     {% endif %}
 
                     <form method="post" action="/practice/new?mode={{ mode }}" class="inline-form">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <button type="submit" class="button secondary">Try Another</button>
                     </form>
 
@@ -96,6 +95,7 @@
                     {% endif %}
 
                     <form method="post" action="/practice/new?mode={{ mode }}" class="inline-form">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <button type="submit" class="button secondary">Try Another</button>
                     </form>
 

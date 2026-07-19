@@ -11,7 +11,7 @@ In scope:
 - All morsePi practice modes: Learn, Send, Read, Listen, Echo, Words
 - Learning gates, letter unlock groups, Daily Mission, Signal Sprint, Practice Coach, badges
 - Multi-user accounts with parent-managed child accounts (open signup after hardening)
-- SQLite storage via SQLAlchemy; deployment on a single EC2 instance
+- SQLite storage (plain sqlite3, all SQL in storage.py); deployment on a single EC2 instance
 
 Explicitly out of scope (stays in morsePi):
 
@@ -36,5 +36,14 @@ Added per phase; behavior is specified by the regression test bank in `tests/`.
 | MW-F-009 | Per-user Farnsworth timing settings persist and are clamped to safe ranges | tests/test_routes.py |
 | MW-F-010 | Word practice unlocks only after S/O gate; words are decoded and logged | tests/test_routes.py |
 | MW-D-001 | All storage is SQLite; attempts preserve raw key-timing events | tests/test_routes.py, storage.py |
-| MW-D-002 | Data is isolated per user (groundwork for Phase 2 accounts) | tests/test_routes.py |
+| MW-D-002 | Data is isolated per user in every query; no cross-request user state | tests/test_isolation.py |
 | MW-D-003 | morsePi student data imports losslessly | scripts/import_morsepi_data.py |
+| MW-D-004 | Phase 1 databases upgrade in place without data loss | tests/test_migration.py |
+| MW-A-001 | Adults sign up with email; login requires a verified email | tests/test_auth.py |
+| MW-A-002 | Password reset uses expiring signed tokens; emails never reveal whether an address is registered | tests/test_auth.py |
+| MW-A-003 | Child accounts are parent-created with recorded consent, username login, and no child email (COPPA design) | tests/test_family_admin.py |
+| MW-A-004 | Roles gate access: students get practice only, parents manage their own children, admin manages all | tests/test_family_admin.py |
+| MW-A-005 | Admin per-student reset snapshots to progress_backups before deleting | tests/test_family_admin.py |
+| MW-S-001 | All POST routes require CSRF (form token or X-CSRFToken header) | tests/test_auth.py |
+| MW-S-002 | Auth endpoints are rate-limited | tests/test_auth.py |
+| MW-S-003 | Session cookies are HttpOnly and SameSite=Lax (Secure flag via MORSEWEB_SECURE_COOKIES) | tests/test_auth.py |

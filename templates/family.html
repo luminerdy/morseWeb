@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}Family{% endblock %}
+{% block heading %}Family Station{% endblock %}
+{% block content %}
+    <section class="panel">
+        <div class="section-heading">
+            <h2>Your Operators</h2>
+            <span class="panel-meta">{{ children | length }} kid account{{ '' if children | length == 1 else 's' }}</span>
+        </div>
+
+        {% if children %}
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Username</th>
+                        <th>Tries</th>
+                        <th>Last practice</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for child in children %}
+                        <tr>
+                            <td>{{ child.name }}</td>
+                            <td>{{ child.slug }}</td>
+                            <td>{{ child.usage.attempts }}</td>
+                            <td>{{ child.usage.last_attempt[:10] if child.usage.last_attempt else "Never" }}</td>
+                            <td>{{ "Active" if child.is_active else "Paused" }}</td>
+                            <td>
+                                <form method="post" action="/family/children/{{ child.id }}/password" class="inline-form">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <label class="sr-only" for="pw-{{ child.id }}">New password for {{ child.name }}</label>
+                                    <input id="pw-{{ child.id }}" name="password" type="password"
+                                           minlength="{{ child_password_min }}" placeholder="New password" required>
+                                    <button type="submit" class="button secondary">Set password</button>
+                                </form>
+                                <form method="post" action="/family/children/{{ child.id }}/active" class="inline-form">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="button secondary">
+                                        {{ "Pause account" if child.is_active else "Resume account" }}
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p class="score-goal">No kid accounts yet. Add one below - they log in with a username, no email needed.</p>
+        {% endif %}
+    </section>
+
+    <section class="panel">
+        <div class="section-heading">
+            <h2>Add A Kid Account</h2>
+        </div>
+
+        <form method="post" action="/family/children">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+            <label for="child-name">Display name</label>
+            <input id="child-name" name="name" type="text" required maxlength="60">
+
+            <label for="child-username">Username (letters, numbers, dashes)</label>
+            <input id="child-username" name="username" type="text" required
+                   pattern="[a-zA-Z0-9-]+" autocomplete="off">
+
+            <label for="child-password">Password ({{ child_password_min }}+ characters)</label>
+            <input id="child-password" name="password" type="password" required
+                   minlength="{{ child_password_min }}" autocomplete="new-password">
+
+            <label class="consent-row">
+                <input type="checkbox" name="consent" value="yes" required>
+                {{ consent_statement }}
+            </label>
+
+            <div class="action-row">
+                <button type="submit" class="button primary">Create account</button>
+            </div>
+        </form>
+    </section>
+{% endblock %}

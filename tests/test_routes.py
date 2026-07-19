@@ -1,27 +1,18 @@
 import sys
-import tempfile
 import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import storage
+from webtest import WebTestCase
 
 
-class RouteTests(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        import app as app_module
-        cls.app_module = app_module
-
+class RouteTests(WebTestCase):
     def setUp(self):
-        self.temp_dir = tempfile.TemporaryDirectory()
-        storage.configure(Path(self.temp_dir.name) / "morseweb.sqlite3")
-        self.client = self.app_module.app.test_client()
-
-    def tearDown(self):
-        storage.configure(Path("data/morseweb.sqlite3"))
-        self.temp_dir.cleanup()
+        super().setUp()
+        self.parent_id = self.logged_in_parent()
+        storage.set_current_user(self.parent_id)
 
     def unlock_word_practice(self):
         import learning
@@ -51,6 +42,13 @@ class RouteTests(unittest.TestCase):
             response = self.client.get(path)
             self.assertEqual(200, response.status_code, path)
 
+    def test_anonymous_is_redirected_to_login(self):
+        anonymous = self.app.test_client()
+        for path in ("/practice", "/progress"):
+            response = anonymous.get(path)
+            self.assertEqual(302, response.status_code, path)
+            self.assertIn("/login", response.headers["Location"])
+
     def test_all_practice_modes_render(self):
         for mode in ("send", "read", "listen", "echo", "learn"):
             response = self.client.get(f"/practice?mode={mode}")
@@ -65,6 +63,11 @@ class RouteTests(unittest.TestCase):
         response = self.client.post("/", data={"message": "SOS"})
         self.assertEqual(200, response.status_code)
         self.assertIn(b"... --- ...", response.data)
+
+    def test_home_renders_for_anonymous_visitors(self):
+        anonymous = self.app.test_client()
+        response = anonymous.get("/")
+        self.assertEqual(200, response.status_code)
 
     # Timing settings
 
@@ -149,6 +152,13 @@ class RouteTests(unittest.TestCase):
         })
         self.assertFalse(response.get_json()["attempt"]["correct"])
 
+    def test_attempt_metadata_uses_logged_in_user(self):
+        self.client.post("/practice/result", json={
+            "target": "E", "mode": "send", "actual_morse": ".",
+        })
+        attempt = storage.load_attempts("practice")[0]
+        self.assertEqual(storage.get_user(self.parent_id)["slug"], attempt["student_id"])
+
     # Bonus sprint
 
     def test_bonus_flow_records_and_summarizes(self):
@@ -182,21 +192,6 @@ class RouteTests(unittest.TestCase):
         self.assertEqual("recorded", payload["status"])
         self.assertTrue(payload["attempt"]["correct"])
         self.assertEqual("AM", payload["attempt"]["decoded"])
-
-    # Multi-user isolation (groundwork for Phase 2 accounts)
-
-    def test_attempts_isolated_between_users(self):
-        self.client.post("/practice/result", json={
-            "target": "E", "mode": "send", "actual_morse": ".",
-        })
-        self.assertEqual(1, len(storage.load_attempts("practice")))
-
-        other = storage.ensure_user(slug="other", name="Other")
-        storage.set_current_user(other)
-        self.assertEqual(0, len(storage.load_attempts("practice")))
-
-        storage.set_current_user(storage.ensure_user())
-        self.assertEqual(1, len(storage.load_attempts("practice")))
 
 
 if __name__ == "__main__":

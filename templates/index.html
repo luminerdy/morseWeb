@@ -2,8 +2,9 @@
 <html>
 <head>
     <title>morseWeb - Pappy's Internet Telegraph</title>
-    <link rel="stylesheet" href="/static/style.css?v=1">
+    <link rel="stylesheet" href="/static/style.css?v=2">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
 </head>
 <body data-tone-hz="{{ timing.tone_hz }}"
       data-dot-ms="{{ timing.dot_ms }}"
@@ -19,14 +20,11 @@
                 <h1>Pappy's Internet Telegraph</h1>
             </div>
 
-            <nav class="nav-row" aria-label="Primary navigation">
-                <a class="active" href="/">Home</a>
-                <a href="/practice">Practice</a>
-                <a href="/progress">Progress</a>
-            </nav>
+            {% include "_nav.html" %}
         </header>
 
         <main class="dashboard-grid">
+            {% include "_flash.html" %}
             <section class="panel compose-panel">
                 <div class="section-heading">
                     <h2>Message</h2>
@@ -34,6 +32,7 @@
                 </div>
 
                 <form method="post" action="/">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <label class="sr-only" for="message">Message</label>
                     <textarea id="message" name="message" autofocus placeholder="Type a message">{{ message }}</textarea>
 
@@ -112,6 +111,7 @@
                     </div>
 
                     <form method="post" action="/timing-settings">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <label for="character_wpm">Character speed</label>
                         <input
                             type="range"

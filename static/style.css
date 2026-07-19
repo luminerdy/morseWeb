@@ -1023,3 +1023,108 @@ input[type="range"] + .button {
         display: grid;
     }
 }
+
+/* --- Phase 2: accounts, family, admin ------------------------------- */
+
+.flash-panel {
+    padding: 14px 18px;
+}
+
+.flash-message {
+    margin: 4px 0;
+    font-weight: bold;
+}
+
+.flash-error {
+    color: #a02020;
+}
+
+.flash-info {
+    color: var(--accent);
+}
+
+.flash-unverified {
+    color: #8a6d1a;
+}
+
+.auth-panel {
+    max-width: 460px;
+}
+
+.auth-panel label,
+.family-form label {
+    display: block;
+    margin: 12px 0 4px;
+    color: var(--muted);
+    font-size: 0.9rem;
+}
+
+.auth-panel input[type="text"],
+.auth-panel input[type="email"],
+.auth-panel input[type="password"],
+.admin-table input[type="password"],
+.panel input[type="text"]:not(.letter-answer-input),
+.panel input[type="email"],
+.panel input[type="password"] {
+    width: 100%;
+    max-width: 320px;
+    padding: 9px 10px;
+    border: 1px solid var(--border-strong);
+    border-radius: 8px;
+    font-size: 1rem;
+}
+
+.consent-row {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    margin: 14px 0;
+    color: var(--muted);
+    font-size: 0.92rem;
+}
+
+.consent-row input {
+    margin-top: 3px;
+}
+
+.nav-logout {
+    border: 1px solid var(--border-strong);
+    background: var(--surface-muted);
+    border-radius: 999px;
+    padding: 6px 14px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    color: var(--muted);
+}
+
+.nav-logout:hover {
+    color: var(--text);
+    border-color: var(--primary);
+}
+
+.admin-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.95rem;
+}
+
+.admin-table th,
+.admin-table td {
+    text-align: left;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+}
+
+.admin-table th {
+    color: var(--muted);
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.admin-table .inline-form {
+    display: inline-flex;
+    gap: 6px;
+    margin: 2px 6px 2px 0;
+}

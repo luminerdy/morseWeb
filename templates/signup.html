@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Sign up{% endblock %}
+{% block heading %}Create Account{% endblock %}
+{% block content %}
+    <section class="panel auth-panel">
+        <div class="section-heading">
+            <h2>Parent / adult account</h2>
+            <span class="panel-meta">Kid accounts are added from the Family page</span>
+        </div>
+
+        <form method="post" action="/signup">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+            <label for="name">Your name</label>
+            <input id="name" name="name" type="text" required maxlength="60"
+                   value="{{ name or '' }}" autofocus>
+
+            <label for="email">Email</label>
+            <input id="email" name="email" type="email" required
+                   autocomplete="email" value="{{ email or '' }}">
+
+            <label for="password">Password (8+ characters)</label>
+            <input id="password" name="password" type="password" required
+                   minlength="8" autocomplete="new-password">
+
+            <label for="confirm">Confirm password</label>
+            <input id="confirm" name="confirm" type="password" required
+                   minlength="8" autocomplete="new-password">
+
+            <div class="action-row">
+                <button type="submit" class="button primary">Sign up</button>
+            </div>
+        </form>
+
+        <p class="score-goal">Already have an account? <a href="/login">Log in</a>.</p>
+    </section>
+{% endblock %}

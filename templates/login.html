@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Log in{% endblock %}
+{% block heading %}Log In{% endblock %}
+{% block content %}
+    <section class="panel auth-panel">
+        <div class="section-heading">
+            <h2>Welcome back, operator</h2>
+            <span class="panel-meta">Parents use email; kids use their username</span>
+        </div>
+
+        <form method="post" action="/login">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+            <label for="identifier">Email or username</label>
+            <input id="identifier" name="identifier" type="text" required
+                   autocomplete="username" value="{{ identifier or '' }}" autofocus>
+
+            <label for="password">Password</label>
+            <input id="password" name="password" type="password" required
+                   autocomplete="current-password">
+
+            <div class="action-row">
+                <button type="submit" class="button primary">Log in</button>
+                <a class="button secondary" href="/forgot">Forgot password?</a>
+            </div>
+        </form>
+
+        {% if unverified_email %}
+            <form method="post" action="/verify/resend">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="email" value="{{ unverified_email }}">
+                <button type="submit" class="button secondary">Resend verification email</button>
+            </form>
+        {% endif %}
+
+        <p class="score-goal">New here? <a href="/signup">Create a parent account</a>.</p>
+    </section>
+{% endblock %}

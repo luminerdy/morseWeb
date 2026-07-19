@@ -91,8 +91,7 @@ def limited_text(value, max_chars):
     return str(value or "").strip()[:max_chars]
 
 
-practice_target = "E"
-practice_feedback = ""
+DEFAULT_PRACTICE_TARGET = "E"
 
 practice_modes = {
     "send": {
@@ -156,12 +155,34 @@ def load_morse_timing_settings():
     return normalize_morse_timing(loaded)
 
 
+def load_practice_state():
+    """Per-user practice target and feedback (was module state in Phase 1)."""
+    state = storage.get_document("practice_state", {})
+    if not isinstance(state, dict):
+        state = {}
+    target = limited_text(state.get("target", ""), 1).upper() or DEFAULT_PRACTICE_TARGET
+    return {"target": target, "feedback": str(state.get("feedback", ""))}
+
+
+def save_practice_state(target, feedback=""):
+    storage.set_document("practice_state", {"target": target, "feedback": feedback})
+
+
+def get_practice_target():
+    return load_practice_state()["target"]
+
+
+def get_practice_feedback():
+    return load_practice_state()["feedback"]
+
+
 def save_morse_timing_settings(settings):
     storage.set_document("timing_settings", normalize_morse_timing(settings))
 
 
-def get_morse_timing():
-    settings = load_morse_timing_settings()
+def get_morse_timing(settings=None):
+    if settings is None:
+        settings = load_morse_timing_settings()
     character_wpm = settings["character_wpm"]
     effective_wpm = settings["effective_wpm"]
     tone_hz = settings["tone_hz"]
@@ -202,7 +223,7 @@ def get_practice_timing(mode, target=None):
 
     listen_score = mode_score(practice_letters, mode)
     target_summary = next(
-        (item for item in progress_summary(practice_letters, mode) if item["letter"] == (target or practice_target)),
+        (item for item in progress_summary(practice_letters, mode) if item["letter"] == (target or get_practice_target())),
         None
     )
     target_needs_help = bool(
@@ -238,10 +259,6 @@ def get_practice_timing(mode, target=None):
         timing["adapted_reason"] = ""
 
     return timing
-
-
-morse_timing = load_morse_timing_settings()
-
 
 
 def classify_gap(gap_seconds):
@@ -554,9 +571,9 @@ def bonus_sprint_summary(session_id):
 
 
 def choose_bonus_sprint_target():
-    global practice_target
-    practice_target = random.choice(get_unlocked_practice_letters())
-    return practice_target
+    target = random.choice(get_unlocked_practice_letters())
+    save_practice_state(target)
+    return target
 
 
 def student_badges(overall, daily):
@@ -1460,10 +1477,9 @@ def get_practice_letter_morse():
 
 
 def choose_new_practice_target(mode="send"):
-    global practice_target, practice_feedback
-
     practice_letters = get_practice_letters_for_mode(mode)
-    practice_target = choose_next_letter(practice_letters, practice_target, mode)
-    practice_feedback = ""
+    target = choose_next_letter(practice_letters, get_practice_target(), mode)
+    save_practice_state(target)
+    return target
 
 
