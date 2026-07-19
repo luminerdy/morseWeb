@@ -1,0 +1,17 @@
+# Litestream continuous replication of the SQLite database to S3.
+# Installed by deploy/setup_server.sh to /etc/litestream.yml with
+# YOUR_BUCKET substituted. The instance role must allow s3:GetObject,
+# s3:PutObject, s3:DeleteObject, and s3:ListBucket on the bucket.
+#
+# A dead instance loses at most ~1s of writes; restore with:
+#   litestream restore -o /opt/morseweb/app/data/morseweb.sqlite3 \
+#       s3://YOUR_BUCKET/litestream/morseweb
+
+dbs:
+  - path: /opt/morseweb/app/data/morseweb.sqlite3
+    replicas:
+      - type: s3
+        bucket: YOUR_BUCKET
+        path: litestream/morseweb
+        sync-interval: 1s
+        retention: 72h

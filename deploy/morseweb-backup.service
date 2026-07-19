@@ -1,0 +1,8 @@
+# Oneshot nightly snapshot, triggered by morseweb-backup.timer.
+
+[Unit]
+Description=morseWeb nightly SQLite snapshot to S3
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/bash /opt/morseweb/app/deploy/backup_to_s3.sh

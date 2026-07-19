@@ -13,11 +13,16 @@ then open http://localhost:5000. Environment:
 
     MORSEWEB_SECRET_KEY     session/token signing key (required in prod)
     MORSEWEB_SECURE_COOKIES set to 1 behind HTTPS
+    MORSEWEB_BEHIND_PROXY   set to 1 when nginx fronts gunicorn
+    MORSEWEB_EMAIL_BACKEND  "ses" in prod (see emailer.py)
+
+In production this module is served by gunicorn (see deploy/).
 """
 
 import os
 
 from flask import Flask, jsonify, redirect, render_template, request, url_for
+from werkzeug.middleware.proxy_fix import ProxyFix
 from flask_login import current_user, login_required
 
 import learning
@@ -61,6 +66,11 @@ app.config["SECRET_KEY"] = os.environ.get("MORSEWEB_SECRET_KEY", "dev-only-not-s
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 app.config["SESSION_COOKIE_SECURE"] = os.environ.get("MORSEWEB_SECURE_COOKIES") == "1"
+
+if os.environ.get("MORSEWEB_BEHIND_PROXY") == "1":
+    # Trust nginx's X-Forwarded-* so url_for(_external=True) builds the
+    # real https links that go into verification/reset emails.
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 
 csrf.init_app(app)
 limiter.init_app(app)
@@ -168,6 +178,16 @@ def practice_prompt_payload(mode):
         "score": practice_mode_score(practice_letters, mode),
         "overall": get_learning_overall(practice_letters),
     }
+
+
+@app.route("/healthz")
+def healthz():
+    """Deploy and uptime checks: confirms the app and database answer."""
+    try:
+        storage.get_user_by_slug(storage.DEFAULT_USER_SLUG)
+    except Exception:
+        return jsonify({"status": "database-error"}), 500
+    return jsonify({"status": "ok"})
 
 
 @app.route("/", methods=["GET", "POST"])

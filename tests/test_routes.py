@@ -69,6 +69,12 @@ class RouteTests(WebTestCase):
         response = anonymous.get("/")
         self.assertEqual(200, response.status_code)
 
+    def test_healthz_is_public_and_checks_database(self):
+        anonymous = self.app.test_client()
+        response = anonymous.get("/healthz")
+        self.assertEqual(200, response.status_code)
+        self.assertEqual({"status": "ok"}, response.get_json())
+
     # Timing settings
 
     def test_timing_settings_persist(self):

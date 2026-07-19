@@ -1,0 +1,29 @@
+# systemd unit for the morseWeb app server.
+# Installed by deploy/setup_server.sh to /etc/systemd/system/morseweb.service.
+#
+# Environment (secret key, cookie flags, SES settings) lives in
+# /etc/morseweb/env, root-owned mode 600 - never in this repo.
+
+[Unit]
+Description=morseWeb gunicorn app server
+After=network.target
+
+[Service]
+User=morseweb
+Group=morseweb
+WorkingDirectory=/opt/morseweb/app
+EnvironmentFile=/etc/morseweb/env
+# 2 workers matches t4g.small's 2 vCPUs; threads keep slow clients from
+# blocking a worker. SQLite writes stay short (WAL mode) so this is safe.
+ExecStart=/opt/morseweb/venv/bin/gunicorn \
+    --workers 2 \
+    --threads 4 \
+    --bind 127.0.0.1:8000 \
+    --access-logfile - \
+    --error-logfile - \
+    app:app
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

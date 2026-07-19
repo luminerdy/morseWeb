@@ -2,9 +2,9 @@
 
 A web-based Morse code learning app, derived from [morsePi](https://github.com/luminerdy/morsePi) (Pappy's Internet Telegraph). Where morsePi is a Raspberry Pi station with a physical telegraph key, morseWeb targets any computer with a browser: the **spacebar is the keyer**, audio plays through the browser, and the app is hosted on AWS EC2 for multiple users.
 
-## Status: Phase 2
+## Status: Phase 3
 
-Multi-user accounts on top of the full Phase 1 practice experience. See [docs/PROJECT_PLAN.md](docs/PROJECT_PLAN.md) for the phased roadmap (Phase 3: EC2 deployment).
+Multi-user accounts (Phase 2) plus everything needed to run on AWS: gunicorn/nginx/systemd configs, Litestream + S3 backups, and tag-triggered deploys over SSM - see [deploy/](deploy/) and the step-by-step [docs/DEPLOY.md](docs/DEPLOY.md) runbook. See [docs/PROJECT_PLAN.md](docs/PROJECT_PLAN.md) for the phased roadmap (Phase 4: open-signup hardening).
 
 ```
 pip install -r requirements.txt

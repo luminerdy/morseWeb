@@ -47,3 +47,6 @@ Added per phase; behavior is specified by the regression test bank in `tests/`.
 | MW-S-001 | All POST routes require CSRF (form token or X-CSRFToken header) | tests/test_auth.py |
 | MW-S-002 | Auth endpoints are rate-limited | tests/test_auth.py |
 | MW-S-003 | Session cookies are HttpOnly and SameSite=Lax (Secure flag via MORSEWEB_SECURE_COOKIES) | tests/test_auth.py |
+| MW-O-001 | /healthz answers without auth and verifies database access | tests/test_routes.py |
+| MW-O-002 | Deploys are repeatable: gunicorn+nginx+systemd configs and SSM deploy script live in deploy/ | deploy/, .github/workflows/deploy.yml |
+| MW-O-003 | Database survives instance loss: Litestream continuous replication + nightly S3 snapshots; restore drill documented | deploy/litestream.yml, deploy/backup_to_s3.sh, docs/DEPLOY.md |
