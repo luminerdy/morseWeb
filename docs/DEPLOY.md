@@ -31,7 +31,7 @@ Create role `morseweb-ec2` (trusted entity: EC2) with:
     },
     {
       "Effect": "Allow",
-      "Action": ["s3:ListBucket"],
+      "Action": ["s3:ListBucket", "s3:GetBucketLocation"],
       "Resource": "arn:aws:s3:::YOUR_BUCKET"
     },
     {
