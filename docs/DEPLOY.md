@@ -4,6 +4,30 @@ Everything repo-side lives in `deploy/`. This document is the AWS-side
 checklist, in order. Estimated cost: t4g.small (~$12/mo) + Route 53
 hosted zone ($0.50/mo) + domain (~$12/yr) + S3/SES (pennies).
 
+## Architecture
+
+```mermaid
+flowchart TB
+    B[Family browsers<br/>spacebar keyer + audio] --> R53[Route 53<br/>morse.luminerdy.com]
+    R53 --> NGINX
+    subgraph EC2 ["EC2 t4g.small — Elastic IP, ports 80/443 only, SSH closed"]
+        NGINX[nginx + certbot TLS] --> APP[Flask app<br/>gunicorn workers]
+        APP --> DB[(SQLite + WAL)]
+        DB --> LS[Litestream<br/>~1s replication]
+        DB --> BK[Nightly .backup timer]
+    end
+    LS --> S3[(S3 bucket<br/>litestream/ + snapshots/)]
+    BK --> S3
+    APP -- verification and reset email --> SES[Amazon SES]
+    GH[GitHub Actions<br/>deploy on version tag] -- assumes OIDC-scoped IAM role --> SSM[SSM run-command<br/>deploys and admin access]
+    SSM --> EC2
+```
+
+The database is protected twice: Litestream streams every write to S3
+continuously, and a systemd timer uploads a full snapshot nightly. A
+dead instance is recovered with the restore drill at the bottom of
+this document.
+
 ## 1. S3 bucket
 
 Create a private bucket for backups, e.g. `morseweb-backups-<suffix>`:
