@@ -1,0 +1,2 @@
+# Phase 0: learning core is stdlib-only.
+# Phase 1 will add: Flask, SQLAlchemy
