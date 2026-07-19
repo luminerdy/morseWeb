@@ -1,15 +1,9 @@
-import json
 from datetime import datetime, timezone
-from pathlib import Path
+
+import storage
 
 
-ATTEMPTS_PATH = Path("data/practice_attempts.jsonl")
 MAX_TIMING_EVENTS = 240
-
-
-def set_attempts_path(path):
-    global ATTEMPTS_PATH
-    ATTEMPTS_PATH = Path(path)
 
 
 def rounded_ms(seconds):
@@ -174,14 +168,8 @@ def normalize_timing_events(events):
 
 
 def append_practice_attempt(record):
-    ATTEMPTS_PATH.parent.mkdir(parents=True, exist_ok=True)
-
     normalized = dict(record)
     normalized["timestamp"] = datetime.now(timezone.utc).isoformat()
     normalized["timing_events"] = normalize_timing_events(normalized.get("timing_events", []))
     normalized["timing_summary"] = timing_summary(normalized["timing_events"])
-
-    with ATTEMPTS_PATH.open("a", encoding="utf-8") as attempts_file:
-        attempts_file.write(json.dumps(normalized, sort_keys=True) + "\n")
-
-    return normalized
+    return storage.append_attempt("practice", normalized)

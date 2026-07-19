@@ -1,0 +1,238 @@
+<!doctype html>
+<html>
+<head>
+    <title>Practice - morseWeb</title>
+    <link rel="stylesheet" href="/static/style.css?v=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body data-tone-hz="{{ timing.tone_hz }}"
+      data-dot-ms="{{ timing.dot_ms }}"
+      data-dash-ms="{{ timing.dash_ms }}"
+      data-symbol-gap-ms="{{ timing.symbol_gap_ms }}"
+      data-letter-gap-ms="{{ timing.letter_gap_ms }}"
+      data-word-gap-ms="{{ timing.word_gap_ms }}"
+      data-input-dash-threshold-ms="{{ timing.input_dash_threshold_ms }}">
+    <div class="app-shell">
+        <header class="app-header">
+            <div>
+                <p class="eyebrow">Morse Station</p>
+                <h1>Practice Mode</h1>
+            </div>
+
+            <nav class="nav-row" aria-label="Primary navigation">
+                <a href="/">Home</a>
+                <a class="active" href="/practice">Practice</a>
+                <a href="/progress?mode={{ mode }}">Progress</a>
+            </nav>
+        </header>
+
+        <main class="dashboard-grid">
+            <section class="panel practice-panel"
+                     data-practice-mode="{{ mode }}"
+                     data-practice-target="{{ target }}"
+                     data-expected-morse="{{ expected_morse }}">
+                <div class="section-heading">
+                    <h2>Current Prompt</h2>
+                    <span class="status-pill" id="practiceStatus">Auto practice on</span>
+                </div>
+
+                <div class="mode-tabs" aria-label="Practice modes">
+                    {% for mode_key, mode_config in modes.items() %}
+                        <a class="{% if mode == mode_key %}active{% endif %}" href="/practice?mode={{ mode_key }}">
+                            {{ mode_config.label }}
+                        </a>
+                    {% endfor %}
+                </div>
+
+                <div class="practice-readout">
+                    <div class="{% if mode in ['read', 'listen', 'echo'] %}read-answer-card{% endif %}">
+                        <div class="field-label">{% if mode in ['send', 'learn'] %}Letter{% elif mode == 'echo' %}Echo{% else %}Your Answer{% endif %}</div>
+                        <div class="target-letter" id="targetLetter">{% if mode in ['read', 'listen', 'echo'] %}?{% else %}{{ target }}{% endif %}</div>
+                    </div>
+
+                    <div>
+                        <div class="field-label">{% if mode in ['listen', 'echo'] %}Audio Prompt{% else %}Morse{% endif %}</div>
+                        <div class="expected-morse {% if mode in ['send', 'listen', 'echo'] %}prompt-placeholder{% endif %}" id="expectedMorse">
+                            {% if mode in ['read', 'learn'] %}{{ expected_morse }}{% elif mode in ['listen', 'echo'] %}Play Code{% else %}?{% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="read-answer-area" id="readAnswerArea" {% if mode not in ['read', 'listen'] %}hidden{% endif %}>
+                    <div class="choice-grid" id="readChoices">
+                        {% for choice in read_choices %}
+                            <button type="button" class="button secondary read-choice" data-read-choice="{{ choice }}">
+                                {{ choice }}
+                            </button>
+                        {% endfor %}
+                    </div>
+
+                    <div class="read-type-row">
+                        <label class="sr-only" for="readAnswerInput">Letter answer</label>
+                        <input id="readAnswerInput" class="letter-answer-input" type="text" maxlength="1" autocomplete="off" inputmode="text">
+                        <button type="button" class="button primary" id="readSubmit">Answer</button>
+                    </div>
+                </div>
+
+                <div class="action-row send-actions" {% if mode not in ['send', 'echo', 'learn'] %}hidden{% endif %}>
+                    {% if mode in ['echo', 'learn'] %}
+                        <button type="button" class="button primary" id="listenReplay">Play Again</button>
+                    {% else %}
+                        <button type="button" class="button secondary" id="playLetterButton">Play Letter</button>
+                    {% endif %}
+
+                    <form method="post" action="/practice/new?mode={{ mode }}" class="inline-form">
+                        <button type="submit" class="button secondary">Try Another</button>
+                    </form>
+
+                    <button type="button" class="button secondary" id="practiceToggle">Stop Practice</button>
+                    <button type="button" class="button secondary" data-test-sound>Test Sound</button>
+                    <button type="button" class="button secondary" onclick="clearKeyInput()">Clear</button>
+                </div>
+
+                <div class="action-row read-actions" {% if mode not in ['read', 'listen'] %}hidden{% endif %}>
+                    {% if mode == 'listen' %}
+                        <button type="button" class="button primary" id="listenReplay">Play Again</button>
+                    {% endif %}
+
+                    <form method="post" action="/practice/new?mode={{ mode }}" class="inline-form">
+                        <button type="submit" class="button secondary">Try Another</button>
+                    </form>
+
+                    <button type="button" class="button secondary" data-test-sound>Test Sound</button>
+                </div>
+
+                <section class="feedback-box inline-feedback" id="practiceFeedback" {% if not feedback %}hidden{% endif %}>
+                    {{ feedback }}
+                </section>
+            </section>
+
+            {% if mode != 'listen' %}
+                <section class="panel key-panel">
+                    <div class="section-heading">
+                        <h2>Your Key Input</h2>
+                        <span class="status-pill" id="keyerStatus">Spacebar keyer</span>
+                    </div>
+
+                    <div class="readout-grid">
+                        <div>
+                            <div class="field-label">Tapped Morse</div>
+                            <div class="live-morse" id="liveMorse">Waiting for key...</div>
+                        </div>
+
+                        <div>
+                            <div class="field-label">Decoded</div>
+                            <div class="live-decoded" id="liveDecoded">---</div>
+                        </div>
+                    </div>
+                </section>
+            {% endif %}
+
+            <aside class="side-stack">
+                <section class="panel compact-panel">
+                    <div class="section-heading">
+                        <h2>Operator Level {{ overall.level }}</h2>
+                        <span class="status-pill">{{ overall.rank }}</span>
+                    </div>
+
+                    <div class="score-card" id="overallScore">
+                        <div class="score-main">
+                            <div>
+                                <span class="score-label">Current Set</span>
+                                <strong id="overallMastery">{{ overall.current_mastery }}%</strong>
+                            </div>
+                            <div>
+                                <span class="score-label">Letters Mastered</span>
+                                <strong id="overallAlphabetProgress">{{ overall.alphabet_progress }}</strong>
+                            </div>
+                        </div>
+
+                        <div class="score-bar" aria-hidden="true">
+                            <span id="overallMasteryBar" style="width: {{ overall.current_mastery }}%"></span>
+                        </div>
+
+                        <div class="score-stats">
+                            <span id="overallAccuracy">{{ overall.accuracy }}% accuracy</span>
+                            <span id="overallStreak">{{ overall.attempts }} tries</span>
+                        </div>
+
+                        <div>
+                            <span class="score-label">Current Practice Set</span>
+                            <div class="unlock-row" id="overallUnlockedLetters">
+                                {% for letter in overall.active_letters %}
+                                    <span>{{ letter }}</span>
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                        <div>
+                            <span class="score-label">Learning Now</span>
+                            <div class="unlock-row" id="overallLearningLetters">
+                                {% if overall.learning_letters %}
+                                    {% for letter in overall.learning_letters %}
+                                        <span>{{ letter }} {{ letter_morse[letter] }}</span>
+                                    {% endfor %}
+                                {% else %}
+                                    <span>None</span>
+                                {% endif %}
+                            </div>
+                            <p class="score-goal" id="overallLearningProgress" {% if not overall.learning_focus.active %}hidden{% endif %}>
+                                {% if overall.learning_focus.active %}
+                                    Learn progress: {{ overall.learning_focus.correct }}/{{ overall.learning_focus.goal }} · {{ overall.learning_focus.remaining }} left
+                                {% endif %}
+                            </p>
+                        </div>
+
+                        <p class="score-goal" id="overallNextUnlock">
+                            {% if overall.learning_letters %}
+                                {{ overall.next_goal }}
+                            {% elif overall.locked_until_tomorrow %}
+                                {{ overall.next_goal }}
+                            {% elif overall.next_unlock.letters %}
+                                Next letters after 100% current set: {{ overall.next_unlock.letters | join(" ") }}
+                            {% else %}
+                                {{ overall.next_unlock.label }}
+                            {% endif %}
+                        </p>
+                    </div>
+                </section>
+
+                <section class="panel compact-panel">
+                    <div class="section-heading">
+                        <h2>{{ modes[mode].label }} Level {{ score.level }}</h2>
+                        <span class="status-pill">{{ score.title }}</span>
+                    </div>
+
+                    <div class="score-card" id="practiceScore">
+                        <div class="score-main">
+                            <div>
+                                <span class="score-label">Mastery</span>
+                                <strong id="scoreMastery">{{ score.mastery }}%</strong>
+                            </div>
+                            <div>
+                                <span class="score-label">Streak</span>
+                                <strong id="scoreStreak">{{ score.streak }}</strong>
+                            </div>
+                        </div>
+
+                        <div class="score-bar" aria-hidden="true">
+                            <span id="scoreMasteryBar" style="width: {{ score.mastery }}%"></span>
+                        </div>
+
+                        <div class="score-stats">
+                            <span id="scoreAccuracy">{{ score.accuracy }}% accuracy</span>
+                            <span id="scoreAttempts">{{ score.attempts }} tries</span>
+                        </div>
+
+                        <p class="score-goal" id="scoreGoal">{{ score.next_goal }}</p>
+
+                        <a class="button secondary full-width" href="/progress?mode={{ mode }}">Details</a>
+                    </div>
+                </section>
+            </aside>
+        </main>
+    </div>
+
+<script src="/static/app.js?v=1"></script>
+</body>
+</html>

@@ -1,10 +1,9 @@
-import json
 import random
 from datetime import datetime, timezone
-from pathlib import Path
+
+import storage
 
 
-PROGRESS_PATH = Path("data/practice_progress.json")
 DEFAULT_MODE = "send"
 
 RANKS = [
@@ -18,10 +17,6 @@ RANKS = [
     "Telegraph Pro"
 ]
 
-
-def set_progress_path(path):
-    global PROGRESS_PATH
-    PROGRESS_PATH = Path(path)
 
 LETTER_UNLOCKS = [
     {"level": 1, "letters": ["E", "T"], "label": "First Signals"},
@@ -53,13 +48,9 @@ def load_progress(letters):
 
 
 def load_all_progress():
-    progress = {}
-
-    if PROGRESS_PATH.exists():
-        try:
-            progress = json.loads(PROGRESS_PATH.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, OSError):
-            progress = {}
+    progress = storage.get_document("practice_progress", {})
+    if not isinstance(progress, dict):
+        progress = {}
 
     return {
         letter: normalize_letter_progress(value)
@@ -77,11 +68,7 @@ def load_progress_for_update(letters):
 
 
 def save_progress(progress):
-    PROGRESS_PATH.parent.mkdir(parents=True, exist_ok=True)
-    PROGRESS_PATH.write_text(
-        json.dumps(progress, indent=2, sort_keys=True),
-        encoding="utf-8"
-    )
+    storage.set_document("practice_progress", progress)
 
 
 def normalize_record(record):

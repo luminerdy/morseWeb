@@ -12,11 +12,11 @@ import random
 from datetime import datetime, timezone
 from pathlib import Path
 
+import storage
 from morse import text_to_morse, morse_to_text
 from practice_attempts import (
     normalize_timing_events,
     rounded_ms,
-    set_attempts_path,
     timing_summary,
 )
 from practice_progress import (
@@ -27,13 +27,11 @@ from practice_progress import (
     progress_summary,
     record_attempt,
     save_progress,
-    set_progress_path,
 )
 
 DEFAULT_CHARACTER_WPM = 12
 DEFAULT_EFFECTIVE_WPM = 6
 DEFAULT_TONE_HZ = 700
-TIMING_SETTINGS_PATH = Path("data/timing_settings.json")
 KEY_TONE_RETRY_SECONDS = 1.25
 
 LETTER_GAP_THRESHOLD_SECONDS = 0.80
@@ -47,7 +45,6 @@ EFFORT_MAX_GAP_SECONDS = 180
 FOCUSED_PRACTICE_MINUTES = 10
 
 starter_practice_letters = ["E", "T", "A", "N", "I", "M"]
-learning_state_path = Path("data/learning_state.json")
 learn_ready_attempts = 10
 learn_ready_strength = 70
 learn_ready_rest_hours = 3
@@ -86,6 +83,16 @@ word_practice_bank = [
     "MEAN", "MEAT", "MOON", "SOON", "TEAM", "TONE", "NOTE", "SEAT", "STEM",
     "STONE"
 ]
+
+MAX_MORSE_CHARS = 600
+
+
+def limited_text(value, max_chars):
+    return str(value or "").strip()[:max_chars]
+
+
+practice_target = "E"
+practice_feedback = ""
 
 practice_modes = {
     "send": {
@@ -143,27 +150,18 @@ def normalize_morse_timing(settings):
 
 
 def load_morse_timing_settings():
-    if TIMING_SETTINGS_PATH.exists():
-        try:
-            loaded = json.loads(TIMING_SETTINGS_PATH.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, OSError):
-            loaded = {}
-    else:
+    loaded = storage.get_document("timing_settings", {})
+    if not isinstance(loaded, dict):
         loaded = {}
-
     return normalize_morse_timing(loaded)
 
 
-def save_morse_timing_settings():
-    TIMING_SETTINGS_PATH.parent.mkdir(parents=True, exist_ok=True)
-    TIMING_SETTINGS_PATH.write_text(
-        json.dumps(normalize_morse_timing(morse_timing), indent=2, sort_keys=True),
-        encoding="utf-8"
-    )
+def save_morse_timing_settings(settings):
+    storage.set_document("timing_settings", normalize_morse_timing(settings))
 
 
 def get_morse_timing():
-    settings = normalize_morse_timing(morse_timing)
+    settings = load_morse_timing_settings()
     character_wpm = settings["character_wpm"]
     effective_wpm = settings["effective_wpm"]
     tone_hz = settings["tone_hz"]
@@ -269,53 +267,19 @@ def parse_attempt_time(value):
         return None
 
 
-def load_attempt_records(path, today_only=False):
-    path = Path(path)
-    attempts = []
-    today = today_key()
-
-    if not path.exists():
+def load_attempt_records(kind, today_only=False):
+    attempts = storage.load_attempts(kind)
+    if not today_only:
         return attempts
 
-    for line in path.read_text(encoding="utf-8").splitlines():
-        if not line.strip():
-            continue
-
-        try:
-            attempt = json.loads(line)
-        except json.JSONDecodeError:
-            continue
-
-        timestamp = str(attempt.get("timestamp", ""))
-        if not today_only or timestamp[:10] == today:
-            attempts.append(attempt)
-
-    return attempts
+    today = today_key()
+    return [
+        attempt for attempt in attempts
+        if str(attempt.get("timestamp", ""))[:10] == today
+    ]
 
 
-SESSION_RECOVERY_FILES = ("practice_attempts.jsonl", "word_attempts.jsonl", "bonus_attempts.jsonl")
-RHYTHM_ATTEMPT_FILES = {
-    "practice_attempts.jsonl": "Practice",
-    "word_attempts.jsonl": "Words",
-    "bonus_attempts.jsonl": "Sprint",
-}
-
-
-def write_attempt_records(path, attempts):
-    path = Path(path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-
-    if not attempts:
-        try:
-            path.unlink()
-        except OSError:
-            pass
-        return
-
-    path.write_text(
-        "\n".join(json.dumps(attempt, sort_keys=True) for attempt in attempts) + "\n",
-        encoding="utf-8"
-    )
+ATTEMPT_KINDS = ("practice", "word", "bonus")
 
 
 
@@ -372,26 +336,21 @@ def rhythm_trend_label(delta):
     return "Steady"
 
 
-def student_data_file(filename):
-    """Path to a per-student data file. Phase 0: single student dir next to learning_state_path."""
-    return learning_state_path.parent / filename
-
-
 def load_today_attempts():
-    return load_attempt_records(student_data_file("practice_attempts.jsonl"), today_only=True)
+    return load_attempt_records("practice", today_only=True)
 
 
 def load_today_effort_attempts():
     attempts = list(load_today_attempts())
-    for filename in ("word_attempts.jsonl", "bonus_attempts.jsonl"):
-        attempts.extend(load_attempt_records(student_data_file(filename), today_only=True))
+    for kind in ("word", "bonus"):
+        attempts.extend(load_attempt_records(kind, today_only=True))
     return attempts
 
 
 def load_all_effort_attempts():
     attempts = []
-    for filename in SESSION_RECOVERY_FILES:
-        attempts.extend(load_attempt_records(student_data_file(filename), today_only=False))
+    for kind in ATTEMPT_KINDS:
+        attempts.extend(load_attempt_records(kind, today_only=False))
     return attempts
 
 
@@ -543,59 +502,27 @@ def daily_mission_summary():
     return summary
 
 
-def bonus_attempts_path():
-    return student_data_file("bonus_attempts.jsonl")
+def _normalized_attempt(record):
+    normalized = dict(record)
+    normalized["timestamp"] = datetime.now(timezone.utc).isoformat()
+    normalized["timing_events"] = normalize_timing_events(normalized.get("timing_events", []))
+    normalized["timing_summary"] = timing_summary(normalized["timing_events"])
+    return normalized
 
 
 def append_bonus_attempt(record):
-    path = bonus_attempts_path()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    normalized = dict(record)
-    normalized["timestamp"] = datetime.now(timezone.utc).isoformat()
-    normalized["timing_events"] = normalize_timing_events(normalized.get("timing_events", []))
-    normalized["timing_summary"] = timing_summary(normalized["timing_events"])
-
-    with path.open("a", encoding="utf-8") as attempts_file:
-        attempts_file.write(json.dumps(normalized, sort_keys=True) + "\n")
-
-    return normalized
-
-
-def word_attempts_path():
-    return student_data_file("word_attempts.jsonl")
+    return storage.append_attempt("bonus", _normalized_attempt(record))
 
 
 def append_word_attempt(record):
-    path = word_attempts_path()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    normalized = dict(record)
-    normalized["timestamp"] = datetime.now(timezone.utc).isoformat()
-    normalized["timing_events"] = normalize_timing_events(normalized.get("timing_events", []))
-    normalized["timing_summary"] = timing_summary(normalized["timing_events"])
-
-    with path.open("a", encoding="utf-8") as attempts_file:
-        attempts_file.write(json.dumps(normalized, sort_keys=True) + "\n")
-
-    return normalized
+    return storage.append_attempt("word", _normalized_attempt(record))
 
 
 def load_bonus_attempts(session_id=None):
-    path = bonus_attempts_path()
+    attempts = load_attempt_records("bonus")
 
-    if not path.exists():
-        return []
-
-    attempts = []
-    for line in path.read_text(encoding="utf-8").splitlines():
-        try:
-            attempt = json.loads(line)
-        except json.JSONDecodeError:
-            continue
-
-        if session_id and attempt.get("session_id") != session_id:
-            continue
-
-        attempts.append(attempt)
+    if session_id:
+        attempts = [a for a in attempts if a.get("session_id") == session_id]
 
     return attempts
 
@@ -629,7 +556,6 @@ def bonus_sprint_summary(session_id):
 def choose_bonus_sprint_target():
     global practice_target
     practice_target = random.choice(get_unlocked_practice_letters())
-    clear_key_state()
     return practice_target
 
 
@@ -1076,16 +1002,12 @@ def word_practice_item(index=0, active_letters=None):
 
 
 def load_word_attempts():
-    path = word_attempts_path()
+    return load_attempt_records("word")
+
+
+def _unused_load_word_attempts():
     attempts = []
-
-    if not path.exists():
-        return attempts
-
-    for line in path.read_text(encoding="utf-8").splitlines():
-        if not line.strip():
-            continue
-
+    for line in []:
         try:
             attempts.append(json.loads(line))
         except json.JSONDecodeError:
@@ -1201,16 +1123,7 @@ def step_key(step):
 
 
 def load_learning_state():
-    if not learning_state_path.exists():
-        return {
-            "groups": {},
-            "last_learning_start_date": ""
-        }
-
-    try:
-        loaded = json.loads(learning_state_path.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
-        loaded = {}
+    loaded = storage.get_document("learning_state") or {}
 
     return {
         "groups": loaded.get("groups", {}) if isinstance(loaded.get("groups"), dict) else {},
@@ -1219,11 +1132,7 @@ def load_learning_state():
 
 
 def save_learning_state(state):
-    learning_state_path.parent.mkdir(parents=True, exist_ok=True)
-    learning_state_path.write_text(
-        json.dumps(state, indent=2, sort_keys=True),
-        encoding="utf-8"
-    )
+    storage.set_document("learning_state", state)
 
 
 def days_since(date_text):
@@ -1536,9 +1445,9 @@ def practice_mode_score(letters, mode):
     return score
 
 
-def get_read_choices(target):
+def get_read_choices(target, mode="read"):
     choices = [target]
-    practice_letters = get_practice_letters_for_mode(get_practice_mode())
+    practice_letters = get_practice_letters_for_mode(mode)
     others = [letter for letter in practice_letters if letter != target]
     choices.extend(random.sample(others, min(3, len(others))))
     return random.sample(choices, len(choices))
@@ -1556,6 +1465,5 @@ def choose_new_practice_target(mode="send"):
     practice_letters = get_practice_letters_for_mode(mode)
     practice_target = choose_next_letter(practice_letters, practice_target, mode)
     practice_feedback = ""
-    clear_key_state()
 
 

@@ -1,9 +1,14 @@
 import importlib
 import json
 import os
+import sys
 import tempfile
 import unittest
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+import storage
 
 
 
@@ -21,18 +26,10 @@ class LearningGateTests(unittest.TestCase):
     def setUp(self):
         self.temp_dir = tempfile.TemporaryDirectory()
         self.base = Path(self.temp_dir.name)
-        self.progress_path = self.base / "practice_progress.json"
-        self.learning_state_path = self.base / "learning_state.json"
-        self.attempts_path = self.base / "practice_attempts.jsonl"
-
-        learning_module.set_progress_path(self.progress_path)
-        learning_module.set_attempts_path(self.attempts_path)
-        learning_module.learning_state_path = self.learning_state_path
+        storage.configure(self.base / "morseweb.sqlite3")
 
     def tearDown(self):
-        learning_module.set_progress_path(Path("data/practice_progress.json"))
-        learning_module.set_attempts_path(Path("data/practice_attempts.jsonl"))
-        learning_module.learning_state_path = Path("data/learning_state.json")
+        storage.configure(Path("data/morseweb.sqlite3"))
         self.temp_dir.cleanup()
 
     def make_attempts(self, total, correct, target="E", mode="send"):
@@ -64,17 +61,15 @@ class LearningGateTests(unittest.TestCase):
                     "strength": strength,
                 }
 
-        self.progress_path.write_text(json.dumps(progress), encoding="utf-8")
+        storage.set_document("practice_progress", progress)
 
     def write_learning_state(self, groups, last_learning_start_date=""):
-        self.learning_state_path.write_text(
-            json.dumps(
-                {
-                    "groups": groups,
-                    "last_learning_start_date": last_learning_start_date,
-                }
-            ),
-            encoding="utf-8",
+        storage.set_document(
+            "learning_state",
+            {
+                "groups": groups,
+                "last_learning_start_date": last_learning_start_date,
+            },
         )
 
     def write_word_attempts(self, total, correct, word="AM", timestamp="2026-06-21T00:00:00+00:00"):
@@ -91,7 +86,8 @@ class LearningGateTests(unittest.TestCase):
                 )
             )
 
-        (self.base / "word_attempts.jsonl").write_text("\n".join(lines) + "\n", encoding="utf-8")
+        for line in lines:
+            storage.append_attempt("word", json.loads(line))
 
     def all_modes(self, strength):
         return {mode: strength for mode in learning_module.practice_modes}
@@ -157,7 +153,7 @@ class LearningGateTests(unittest.TestCase):
         )
 
         state = learning_module.get_practice_letter_state()
-        saved_state = json.loads(self.learning_state_path.read_text(encoding="utf-8"))
+        saved_state = storage.get_document("learning_state")
 
         self.assertEqual(["S", "O"], state["learning_letters"])
         self.assertEqual(["S", "O"], saved_state["groups"]["SO"]["letters"])
@@ -190,7 +186,7 @@ class LearningGateTests(unittest.TestCase):
                 }
             }
 
-        self.progress_path.write_text(json.dumps(progress), encoding="utf-8")
+        storage.set_document("practice_progress", progress)
         self.write_learning_state(
             {
                 "SO": {
@@ -234,7 +230,7 @@ class LearningGateTests(unittest.TestCase):
                 }
             }
 
-        self.progress_path.write_text(json.dumps(progress), encoding="utf-8")
+        storage.set_document("practice_progress", progress)
         self.write_learning_state(
             {
                 "SO": {
@@ -350,7 +346,7 @@ class LearningGateTests(unittest.TestCase):
 
     def test_daily_mission_learning_now_keeps_mission_open_until_learn_ready(self):
         self.write_progress(learning_module.starter_practice_letters, self.all_modes(1.0))
-        progress = json.loads(self.progress_path.read_text(encoding="utf-8"))
+        progress = storage.get_document("practice_progress")
         progress["S"] = {
             "learn": {
                 "attempts": 6,
@@ -369,7 +365,7 @@ class LearningGateTests(unittest.TestCase):
                 "strength": 1.0,
             }
         }
-        self.progress_path.write_text(json.dumps(progress), encoding="utf-8")
+        storage.set_document("practice_progress", progress)
 
         original_loader = learning_module.load_today_attempts
         learning_module.load_today_attempts = lambda: self.make_attempts(total=22, correct=18)
@@ -393,7 +389,7 @@ class LearningGateTests(unittest.TestCase):
 
     def test_daily_mission_completed_learning_waits_for_short_break(self):
         self.write_progress(learning_module.starter_practice_letters, self.all_modes(1.0))
-        progress = json.loads(self.progress_path.read_text(encoding="utf-8"))
+        progress = storage.get_document("practice_progress")
         for letter in ["S", "O"]:
             progress[letter] = {
                 "learn": {
@@ -404,7 +400,7 @@ class LearningGateTests(unittest.TestCase):
                     "strength": 1.0,
                 }
             }
-        self.progress_path.write_text(json.dumps(progress), encoding="utf-8")
+        storage.set_document("practice_progress", progress)
 
         original_loader = learning_module.load_today_attempts
         learning_module.load_today_attempts = lambda: self.make_attempts(total=22, correct=18)
@@ -454,18 +450,15 @@ class LearningGateTests(unittest.TestCase):
             },
             last_learning_start_date="2000-01-01",
         )
-        word_attempts = []
         for index in range(learning_module.word_ready_correct_attempts):
-            word_attempts.append(
-                json.dumps(
-                    {
-                        "word": "AM",
-                        "correct": True,
-                        "timestamp": f"2026-06-21T00:0{index}:00+00:00",
-                    }
-                )
+            storage.append_attempt(
+                "word",
+                {
+                    "word": "AM",
+                    "correct": True,
+                    "timestamp": f"2026-06-21T00:0{index}:00+00:00",
+                },
             )
-        (self.base / "word_attempts.jsonl").write_text("\n".join(word_attempts) + "\n", encoding="utf-8")
 
         state = learning_module.get_practice_letter_state()
 
@@ -525,7 +518,7 @@ class LearningGateTests(unittest.TestCase):
         active_letters = learning_module.starter_practice_letters + ["S", "O"]
         self.write_progress(active_letters, self.all_modes(1.0))
         self.write_word_attempts(learning_module.word_ready_correct_attempts, learning_module.word_ready_correct_attempts)
-        progress = json.loads(self.progress_path.read_text(encoding="utf-8"))
+        progress = storage.get_document("practice_progress")
         progress["R"] = {
             "learn": {
                 "attempts": 7,
@@ -544,7 +537,7 @@ class LearningGateTests(unittest.TestCase):
                 "strength": 1.0,
             }
         }
-        self.progress_path.write_text(json.dumps(progress), encoding="utf-8")
+        storage.set_document("practice_progress", progress)
         self.write_learning_state(
             {
                 "SO": {
@@ -588,7 +581,7 @@ class LearningGateTests(unittest.TestCase):
             "streak": 0,
             "strength": 0.0,
         }
-        self.progress_path.write_text(json.dumps(progress), encoding="utf-8")
+        storage.set_document("practice_progress", progress)
 
         state = {
             "active_letters": learning_module.starter_practice_letters,
@@ -619,7 +612,7 @@ class LearningGateTests(unittest.TestCase):
                 for mode in learning_module.practice_modes
             }
 
-        self.progress_path.write_text(json.dumps(progress), encoding="utf-8")
+        storage.set_document("practice_progress", progress)
 
         state = {
             "active_letters": learning_module.starter_practice_letters,
@@ -648,7 +641,7 @@ class LearningGateTests(unittest.TestCase):
 
         for letter in learning_module.starter_practice_letters:
             progress[letter]["echo"]["strength"] = 0.25
-        self.progress_path.write_text(json.dumps(progress), encoding="utf-8")
+        storage.set_document("practice_progress", progress)
 
         state = {
             "active_letters": learning_module.starter_practice_letters,

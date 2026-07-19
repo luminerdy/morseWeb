@@ -1,0 +1,182 @@
+<!doctype html>
+<html>
+<head>
+    <title>Progress - morseWeb</title>
+    <link rel="stylesheet" href="/static/style.css?v=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body>
+    <div class="app-shell">
+        <header class="app-header">
+            <div>
+                <p class="eyebrow">Morse Station</p>
+                <h1>Progress</h1>
+            </div>
+
+            <nav class="nav-row" aria-label="Primary navigation">
+                <a href="/">Home</a>
+                <a href="/practice?mode={{ mode }}">Practice</a>
+                <a class="active" href="/progress?mode={{ mode }}">Progress</a>
+            </nav>
+        </header>
+
+        <main class="progress-page">
+            <section class="panel">
+                <div class="section-heading">
+                    <h2>Operator Level {{ overall.level }}</h2>
+                    <span class="status-pill">{{ overall.rank }}</span>
+                </div>
+
+                <div class="score-card score-card-wide">
+                    <div class="score-main">
+                        <div>
+                            <span class="score-label">Letters Mastered</span>
+                            <strong>{{ overall.alphabet_progress }}</strong>
+                        </div>
+                        <div>
+                            <span class="score-label">Current Set</span>
+                            <strong>{{ overall.current_mastery }}%</strong>
+                        </div>
+                        <div>
+                            <span class="score-label">Accuracy</span>
+                            <strong>{{ overall.accuracy }}%</strong>
+                        </div>
+                        <div>
+                            <span class="score-label">Practice Time</span>
+                            <strong>{{ effort.label }}</strong>
+                        </div>
+                    </div>
+
+                    <div class="score-bar" aria-hidden="true">
+                        <span style="width: {{ overall.alphabet_percent }}%"></span>
+                    </div>
+
+                    <div class="overall-unlock-grid">
+                        <div>
+                            <span class="score-label">Current Practice Set</span>
+                            <div class="unlock-row">
+                                {% for letter in overall.active_letters %}
+                                    <span>{{ letter }}</span>
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                        <div>
+                            <span class="score-label">Learning Now</span>
+                            <div class="unlock-row">
+                                {% if overall.learning_letters %}
+                                    {% for letter in overall.learning_letters %}
+                                        <span>{{ letter }} {{ letter_morse[letter] }}</span>
+                                    {% endfor %}
+                                {% else %}
+                                    <span>None</span>
+                                {% endif %}
+                            </div>
+                            <p class="score-goal" id="overallLearningProgress" {% if not overall.learning_focus.active %}hidden{% endif %}>
+                                {% if overall.learning_focus.active %}
+                                    Learn progress: {{ overall.learning_focus.correct }}/{{ overall.learning_focus.goal }} · {{ overall.learning_focus.remaining }} left
+                                {% endif %}
+                            </p>
+                            {% if overall.learning_focus.active %}
+                                <div class="unlock-row">
+                                    {% for item in overall.learning_focus.letters %}
+                                        <span>{{ item.letter }} {{ item.correct }}/{{ item.goal }}</span>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <p class="score-goal">
+                            {% if overall.learning_letters %}
+                                {{ overall.next_goal }}. Each new letter needs {{ overall.learn_ready_attempts }} correct Learn tries, {{ overall.learn_ready_strength }}% Learn strength, and about {{ overall.learn_ready_rest_hours }} hours of rest.
+                            {% elif overall.locked_until_tomorrow %}
+                                {{ overall.next_goal }}
+                            {% elif overall.next_unlock.letters %}
+                                Next letters after 100% current set: {{ overall.next_unlock.letters | join(" ") }}
+                            {% else %}
+                                {{ overall.next_unlock.label }}
+                            {% endif %}
+                        </p>
+                    </div>
+                </div>
+            </section>
+
+            <section class="panel">
+                <div class="mode-tabs" aria-label="Progress modes">
+                    {% for mode_key, mode_config in modes.items() %}
+                        <a class="{% if mode == mode_key %}active{% endif %}" href="/progress?mode={{ mode_key }}">
+                            {{ mode_config.label }}
+                        </a>
+                    {% endfor %}
+                </div>
+
+                {% set mode_details = details[mode] %}
+                <div class="score-card score-card-wide">
+                    <div class="section-heading">
+                        <h2>{{ modes[mode].label }} Level {{ mode_details.score.level }}</h2>
+                        <span class="status-pill">{{ mode_details.scope_label }}</span>
+                    </div>
+
+                    <div class="score-main">
+                        <div>
+                            <span class="score-label">{{ mode_details.scope_label }} Mastery</span>
+                            <strong>{{ mode_details.score.mastery }}%</strong>
+                        </div>
+                        <div>
+                            <span class="score-label">Accuracy</span>
+                            <strong>{{ mode_details.score.accuracy }}%</strong>
+                        </div>
+                        <div>
+                            <span class="score-label">Best Streak</span>
+                            <strong>{{ mode_details.score.streak }}</strong>
+                        </div>
+                    </div>
+
+                    <div class="score-bar" aria-hidden="true">
+                        <span style="width: {{ mode_details.score.mastery }}%"></span>
+                    </div>
+
+                    <p class="score-goal">
+                        {% if mode_details.score.completion_label %}
+                            {{ mode_details.score.completion_label }} · {{ mode_details.score.next_goal }}
+                        {% else %}
+                            {{ mode_details.score.next_goal }}
+                        {% endif %}
+                    </p>
+                </div>
+            </section>
+
+            <section class="panel">
+                <div class="section-heading">
+                    <h2>{{ mode_details.letters_label }}</h2>
+                </div>
+
+                <div class="progress-list progress-list-wide">
+                    {% for item in mode_details.letters %}
+                        <div class="progress-item">
+                            <div class="progress-row">
+                                <div class="progress-letter-code">
+                                    <strong>{{ item.letter }}</strong>
+                                    <span>{{ letter_morse[item.letter] }}</span>
+                                </div>
+                                <span>{{ item.strength_percent }}%</span>
+                            </div>
+                            <div class="progress-bar" aria-hidden="true">
+                                <span style="width: {{ item.strength_percent }}%"></span>
+                            </div>
+                            <div class="progress-meta">
+                                <span>{{ item.accuracy }}% accuracy</span>
+                                <span>{{ item.streak }} streak</span>
+                                <span>{{ item.correct }} correct</span>
+                                <span>{{ item.attempts }} tries</span>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            </section>
+        </main>
+    </div>
+
+<script src="/static/app.js?v=1"></script>
+</body>
+</html>

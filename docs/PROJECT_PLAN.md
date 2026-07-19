@@ -26,7 +26,7 @@ Goal: the full learning experience running on your own machine with the spacebar
 - Flask app skeleton: routes for home, Learn, Send, Read, Listen, Echo, Words, Progress.
 - Promote morsePi's spacebar keyer JS from fallback to primary input. Capture keydown/keyup timestamps client-side and send timing events to the server (this preserves the rhythm-history data morsePi collects from GPIO).
 - Browser audio via the existing Web Audio playback JS; sidetone on spacebar press.
-- Replace `data/students/*.json` and JSONL files with SQLite (SQLAlchemy): tables for `users`, `letter_progress`, `practice_attempts`, `word_attempts`, `timing_events`, `daily_missions`. Write a one-time importer from morsePi's JSON format so existing grandkid progress could be migrated later.
+- Replace `data/students/*.json` and JSONL files with SQLite: tables for `users`, `letter_progress`, `practice_attempts`, `word_attempts`, `timing_events`, `daily_missions`. Write a one-time importer from morsePi's JSON format so existing grandkid progress could be migrated later.
 - Port learning gates, Daily Mission, Signal Sprint, badges, and Practice Coach on top of the new data layer.
 - Extend the test bank: routes, gates against SQLite, attempt logging, timing summaries.
 
@@ -64,7 +64,7 @@ Goal: safe to let strangers register.
 - Terms of service + privacy policy pages (required for COPPA parent-consent language).
 - Signup abuse controls: rate limits, email verification required before practice data is stored, optional CAPTCHA.
 - Input validation pass on every POST route; dependency audit (`pip-audit`) in CI.
-- Load sanity check (e.g., `locust` with ~50 concurrent keyers) — confirms SQLite + gunicorn worker config holds; document the trigger point for moving to RDS Postgres (the SQLAlchemy layer from Phase 1 makes that a config change, not a rewrite).
+- Load sanity check (e.g., `locust` with ~50 concurrent keyers) — confirms SQLite + gunicorn worker config holds; document the trigger point for moving to RDS Postgres (all SQL lives in storage.py, so that's one module to swap, not a rewrite).
 - Error tracking (Sentry free tier or CloudWatch alarms on 5xx).
 - Uptime monitoring and a status/health endpoint.
 
@@ -93,5 +93,5 @@ t4g.small (~$12/mo) + Route 53 hosted zone ($0.50/mo) + domain (~$12/yr) + S3/SE
 ## Risk notes
 
 - Spacebar timing in browsers is good (~few ms jitter) but not GPIO-grade; keep Farnsworth tolerances slightly looser than the Pi's and tune from real attempt data.
-- SQLite is single-writer; fine for hundreds of users with short writes, but keep all writes fast and use WAL mode. Migration path to Postgres is pre-paid by using SQLAlchemy.
+- SQLite is single-writer; fine for hundreds of users with short writes, but keep all writes fast and use WAL mode. Migration path to Postgres is pre-paid by isolating all SQL in storage.py.
 - Open signup + kids means the Phase 2 parent-consent design is not optional — do not launch open signup before Phase 4 completes.

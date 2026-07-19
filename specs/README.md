@@ -21,7 +21,7 @@ Explicitly out of scope (stays in morsePi):
 
 ## Requirement documents
 
-Added per phase. Phase 0 covers only the ported learning core; its behavior is specified by the regression test bank in `tests/`, carried over from morsePi.
+Added per phase; behavior is specified by the regression test bank in `tests/`.
 
 | ID | Requirement | Verified by |
 | --- | --- | --- |
@@ -29,3 +29,12 @@ Added per phase. Phase 0 covers only the ported learning core; its behavior is s
 | MW-F-002 | Key timing events are normalized and summarized (dot/dash/gap rhythm) | tests/test_practice_attempts.py |
 | MW-F-003 | Letter unlock gates: Learn repetitions, strength, rest, and word practice before next group | tests/test_learning_gates.py |
 | MW-F-004 | Daily Mission, Practice Coach, and badges derive from attempt history | tests/test_learning_gates.py |
+| MW-F-005 | Home page converts text to Morse and plays it in the browser | tests/test_routes.py |
+| MW-F-006 | All five practice modes render and serve prompts | tests/test_routes.py |
+| MW-F-007 | Attempts are checked server-side; the client cannot forge correctness | tests/test_routes.py |
+| MW-F-008 | Attempts against locked letters are ignored | tests/test_routes.py |
+| MW-F-009 | Per-user Farnsworth timing settings persist and are clamped to safe ranges | tests/test_routes.py |
+| MW-F-010 | Word practice unlocks only after S/O gate; words are decoded and logged | tests/test_routes.py |
+| MW-D-001 | All storage is SQLite; attempts preserve raw key-timing events | tests/test_routes.py, storage.py |
+| MW-D-002 | Data is isolated per user (groundwork for Phase 2 accounts) | tests/test_routes.py |
+| MW-D-003 | morsePi student data imports losslessly | scripts/import_morsepi_data.py |
