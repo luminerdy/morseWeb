@@ -17,6 +17,7 @@ touches only this file.
 import json
 import sqlite3
 import threading
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -69,7 +70,14 @@ def configure(db_path):
         _current_user_id = None
 
 
+@contextmanager
 def _connect():
+    """Yield a connection that commits on success and always closes.
+
+    sqlite3's own context manager leaves the connection open, which keeps
+    the database file locked on Windows; closing here lets tests delete
+    their temp directories.
+    """
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
@@ -81,7 +89,11 @@ def _connect():
                 conn.executescript(SCHEMA)
                 conn.commit()
                 _initialized_paths.add(key)
-    return conn
+    try:
+        with conn:
+            yield conn
+    finally:
+        conn.close()
 
 
 def ensure_user(slug=DEFAULT_USER_SLUG, name=DEFAULT_USER_NAME):
