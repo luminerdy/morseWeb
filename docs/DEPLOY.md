@@ -130,10 +130,14 @@ sudo -u morseweb /opt/morseweb/venv/bin/python \
 
 1. IAM -> Identity providers -> add GitHub OIDC provider
    (`token.actions.githubusercontent.com`).
-2. Create role `morseweb-github-deploy` trusted by
-   `repo:luminerdy/morseWeb:*` with an inline policy allowing
-   `ssm:SendCommand` (on the instance and the `AWS-RunShellScript`
-   document) and `ssm:GetCommandInvocation`.
+2. Create role `morseweb-github-deploy` with an inline policy allowing
+   `ssm:SendCommand` (on instances tagged `Name=morseweb` and the
+   `AWS-RunShellScript` document) and `ssm:GetCommandInvocation`.
+   **Trust policy gotcha:** GitHub's OIDC `sub` claim now embeds
+   numeric IDs (`repo:owner@ID/repo@ID:...`), so the classic
+   `repo:luminerdy/morseWeb:*` pattern alone does not match. Trust
+   both forms; find the exact denied `sub` in CloudTrail's
+   `AssumeRoleWithWebIdentity` event if it ever breaks again.
 3. Repo secrets: `AWS_DEPLOY_ROLE_ARN`, `AWS_REGION`,
    `EC2_INSTANCE_ID`.
 4. Deploy by pushing a tag (`git tag v1.0.0 && git push --tags`) or
