@@ -155,21 +155,36 @@ Prove a dead instance loses at most seconds of data:
 
 1. Note the current state (e.g. an attempt count from `/admin`).
 2. Terminate the instance. Yes, really.
-3. Launch a replacement (steps 3-4 above; same role, same bucket).
-4. On the new instance, **before starting the app**:
+3. Launch a replacement (steps 3-4 above; same role, same bucket) and
+   move the Elastic IP to it.
+4. **Restore by generation id, not "latest".** setup_server.sh starts
+   the app and Litestream immediately, so the fresh empty database
+   begins replicating as a NEW generation the moment provisioning
+   finishes - a plain restore would faithfully restore that empty
+   database. List generations and pick the one whose time range covers
+   the real data:
 
    ```bash
    sudo systemctl stop morseweb litestream
-   sudo -u morseweb litestream restore \
-       -o /opt/morseweb/app/data/morseweb.sqlite3 \
-       s3://YOUR_BUCKET/litestream/morseweb
+   sudo litestream generations -config /etc/litestream.yml \
+       /opt/morseweb/app/data/morseweb.sqlite3
+   sudo rm -f /opt/morseweb/app/data/morseweb.sqlite3*
+   sudo -u morseweb litestream restore -config /etc/litestream.yml \
+       -generation <ID_WITH_THE_DATA> \
+       /opt/morseweb/app/data/morseweb.sqlite3
    sudo systemctl start litestream morseweb
    ```
 
-5. Move the Elastic IP to the new instance; certbot certs can be
-   re-issued (`certbot --nginx -d ...`) since Let's Encrypt is free.
-6. Verify the noted state survived. Fallback if Litestream's replica
-   is ever unusable: pull the newest nightly from
+5. Re-issue TLS: `certbot --nginx -d morse.luminerdy.com ...` (free).
+6. Verify the noted state survived. Note that /etc/morseweb/env is
+   regenerated with a new secret key, so existing sessions and pending
+   email tokens are invalidated - users just log in again. Fallback if
+   Litestream's replica is ever unusable: pull the newest nightly from
    `s3://YOUR_BUCKET/snapshots/`.
+7. The GitHub `EC2_INSTANCE_ID` secret must be updated to the new
+   instance id (the deploy role is tag-scoped, so IAM needs no change).
 
-Do this drill once before telling the family the site exists.
+Drill executed successfully on 2026-07-19: instance terminated,
+replacement provisioned from scratch, database restored from the
+Litestream replica with zero data loss, HTTPS re-issued. Total
+downtime about 15 minutes.
