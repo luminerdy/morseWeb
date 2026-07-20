@@ -170,7 +170,18 @@ def signup():
         flash("If that email is new here, your account was created. Check your email.", "info")
         return redirect(url_for("auth.login"))
 
-    send_verification_email(storage.get_user(user_id))
+    try:
+        send_verification_email(storage.get_user(user_id))
+    except Exception:
+        # The account exists; a broken mail backend must not 500 the flow.
+        current_app.logger.exception("verification email failed")
+        flash(
+            "Account created, but the verification email could not be sent. "
+            "Use 'Resend verification email' on the login page in a few minutes.",
+            "error",
+        )
+        return redirect(url_for("auth.login"))
+
     flash("Account created. Check your email for a verification link.", "info")
     return redirect(url_for("auth.login"))
 
@@ -195,7 +206,10 @@ def resend_verification():
     email = normalize_email(request.form.get("email"))
     user = storage.get_user_by_email(email) if valid_email(email) else None
     if user is not None and not user["email_verified"]:
-        send_verification_email(user)
+        try:
+            send_verification_email(user)
+        except Exception:
+            current_app.logger.exception("verification email failed")
     flash("If that address needs verification, a new link was sent.", "info")
     return redirect(url_for("auth.login"))
 
@@ -252,7 +266,10 @@ def forgot_password():
     email = normalize_email(request.form.get("email"))
     user = storage.get_user_by_email(email) if valid_email(email) else None
     if user is not None:
-        send_reset_email(user)
+        try:
+            send_reset_email(user)
+        except Exception:
+            current_app.logger.exception("reset email failed")
     flash("If that email has an account, a reset link was sent.", "info")
     return redirect(url_for("auth.login"))
 

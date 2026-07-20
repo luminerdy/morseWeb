@@ -53,6 +53,18 @@ class SignupAndVerificationTests(WebTestCase):
         self.assertEqual(400, response.status_code)
         self.assertIsNone(storage.get_user_by_email("new@example.com"))
 
+    def test_signup_survives_email_send_failure(self):
+        def broken_send(to, subject, body):
+            raise RuntimeError("mail backend down")
+
+        original = emailer.send_message
+        emailer.send_message = broken_send
+        self.addCleanup(lambda: setattr(emailer, "send_message", original))
+
+        response = self.signup()
+        self.assertEqual(302, response.status_code)
+        self.assertIsNotNone(storage.get_user_by_email("new@example.com"))
+
     def test_duplicate_email_not_revealed(self):
         self.signup()
         emailer.outbox.clear()

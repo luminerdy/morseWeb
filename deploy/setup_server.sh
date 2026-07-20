@@ -18,6 +18,10 @@ set -euo pipefail
 DOMAIN="${DOMAIN:?set DOMAIN=your.domain}"
 BUCKET="${BUCKET:?set BUCKET=your-s3-bucket}"
 REPO="${REPO:-https://github.com/luminerdy/morseWeb.git}"
+# Email sends from the registrable domain (the SES-verified identity),
+# not the app subdomain: morse.example.com -> morseweb@example.com.
+# Override MAIL_DOMAIN if your app host is not exactly one label deep.
+MAIL_DOMAIN="${MAIL_DOMAIN:-${DOMAIN#*.}}"
 
 APP_DIR=/opt/morseweb/app
 VENV_DIR=/opt/morseweb/venv
@@ -50,6 +54,10 @@ sudo -u morseweb "$VENV_DIR/bin/pip" install --upgrade pip
 sudo -u morseweb "$VENV_DIR/bin/pip" install -r "$APP_DIR/deploy/requirements-prod.txt"
 
 echo "== app environment file =="
+IMDS_TOKEN=$(curl -s -X PUT "http://169.254.169.254/latest/api/token" \
+    -H "X-aws-ec2-metadata-token-ttl-seconds: 60" || true)
+AWS_REGION=$(curl -s -H "X-aws-ec2-metadata-token: ${IMDS_TOKEN}" \
+    http://169.254.169.254/latest/meta-data/placement/region || echo us-east-1)
 mkdir -p /etc/morseweb
 if [ ! -f /etc/morseweb/env ]; then
     cat > /etc/morseweb/env <<EOF
@@ -57,7 +65,8 @@ MORSEWEB_SECRET_KEY=$(python3 -c "import secrets; print(secrets.token_urlsafe(48
 MORSEWEB_SECURE_COOKIES=1
 MORSEWEB_BEHIND_PROXY=1
 MORSEWEB_EMAIL_BACKEND=ses
-MORSEWEB_EMAIL_FROM=morseweb@${DOMAIN}
+MORSEWEB_EMAIL_FROM=morseweb@${MAIL_DOMAIN}
+MORSEWEB_SES_REGION=${AWS_REGION}
 EOF
     chmod 600 /etc/morseweb/env
     echo "wrote /etc/morseweb/env (new secret key generated)"
