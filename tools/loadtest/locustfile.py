@@ -49,19 +49,28 @@ class Keyer(HttpUser):
     wait_time = between(1.0, 3.0)  # one letter every couple of seconds
 
     def on_start(self):
-        self.client.cookies.set("session", SHARED["cookie"])
-        self.headers = {"X-CSRFToken": SHARED["csrf"]}
+        # Send the cookie explicitly per request - cookie-jar domain
+        # matching for a bare IP host silently drops it otherwise.
+        self.headers = {
+            "X-CSRFToken": SHARED["csrf"],
+            "Cookie": f"session={SHARED['cookie']}",
+        }
+        sanity = self.client.get("/practice", headers=self.headers,
+                                 allow_redirects=False)
+        assert sanity.status_code == 200, f"session not accepted: {sanity.status_code}"
 
     @task(5)
     def send_letter(self):
-        self.client.post("/practice/result", json={
+        with self.client.post("/practice/result", json={
             "target": "E",
             "mode": "send",
             "actual_morse": ".",
             "timing_events": [
                 {"type": "symbol", "symbol": ".", "duration_ms": 95},
             ],
-        }, headers=self.headers)
+        }, headers=self.headers, catch_response=True) as response:
+            if response.status_code == 200 and b'"status"' not in response.content:
+                response.failure("no status in payload")
 
     @task(2)
     def next_prompt(self):
@@ -69,4 +78,5 @@ class Keyer(HttpUser):
 
     @task(1)
     def check_progress(self):
-        self.client.get("/progress")
+        self.client.get("/progress", headers=self.headers,
+                        allow_redirects=False)
