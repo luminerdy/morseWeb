@@ -1,0 +1,8 @@
+# Oneshot 5xx-count metric publisher, triggered by morseweb-5xx.timer.
+
+[Unit]
+Description=morseWeb 5xx metric to CloudWatch
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/bash /opt/morseweb/app/deploy/report_5xx.sh

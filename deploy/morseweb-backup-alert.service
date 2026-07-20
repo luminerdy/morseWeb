@@ -1,0 +1,10 @@
+# Fired by morseweb-backup.service's OnFailure= - emails the operator
+# through SNS when the nightly snapshot fails.
+
+[Unit]
+Description=morseWeb backup failure alert
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/morseweb/monitor-env
+ExecStart=/usr/bin/bash -c 'aws sns publish --topic-arn "$SNS_TOPIC_ARN" --subject "morseWeb backup FAILED" --message "Nightly SQLite snapshot to S3 failed on $(hostname). Investigate with: journalctl -u morseweb-backup" --region "${AWS_REGION:-us-east-1}"'

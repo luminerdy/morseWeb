@@ -153,6 +153,23 @@ sudo -u morseweb /opt/morseweb/venv/bin/python \
   morseweb-backup.timer`).
 - Uptime checks and 5xx alarms are Phase 4 scope.
 
+## Load capacity and the Postgres trigger
+
+Phase 4 load test (2026-07-19, tools/loadtest/locustfile.py, run on
+the instance against gunicorn directly): 50 concurrent keyers, all
+writing to one user's progress document - SQLite's worst case.
+Results: practice-result POSTs p50 32ms / p95 75ms / p99 120ms at
+~24 req/s sustained, 1 dropped connection in 2,157 requests. The
+t4g.small + 2 gunicorn workers + SQLite WAL config has ample headroom
+for family-and-friends scale.
+
+Move to RDS Postgres (all SQL lives in storage.py - swap one module)
+when any of these show up under real traffic:
+
+- "database is locked" errors in journalctl -u morseweb
+- practice/result p95 above 500ms sustained
+- more than ~150 truly concurrent keyers expected
+
 ## Restore drill (Phase 3 exit criterion)
 
 Prove a dead instance loses at most seconds of data:

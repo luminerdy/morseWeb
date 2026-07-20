@@ -2,6 +2,7 @@
 
 [Unit]
 Description=morseWeb nightly SQLite snapshot to S3
+OnFailure=morseweb-backup-alert.service
 
 [Service]
 Type=oneshot
