@@ -48,5 +48,10 @@ Added per phase; behavior is specified by the regression test bank in `tests/`.
 | MW-S-002 | Auth endpoints are rate-limited | tests/test_auth.py |
 | MW-S-003 | Session cookies are HttpOnly and SameSite=Lax (Secure flag via MORSEWEB_SECURE_COOKIES) | tests/test_auth.py |
 | MW-O-001 | /healthz answers without auth and verifies database access | tests/test_routes.py |
+| MW-L-001 | Public Terms and Privacy pages carry COPPA parent-consent language; signup requires agreement | tests/test_auth.py |
+| MW-S-004 | All user-supplied fields carry explicit length caps; practice data requires a verified login | tests/test_auth.py, tests/test_family_admin.py |
+| MW-S-005 | Dependencies are audited (pip-audit) on every push | .github/workflows/tests.yml |
+| MW-O-004 | 50 concurrent keyers hold p95 < 100ms on the production stack; Postgres trigger documented | tools/loadtest/, docs/DEPLOY.md |
+| MW-O-005 | Site-down, instance, 5xx, and backup failures alert the operator by email | deploy/report_5xx.sh, docs/DEPLOY.md |
 | MW-O-002 | Deploys are repeatable: gunicorn+nginx+systemd configs and SSM deploy script live in deploy/ | deploy/, .github/workflows/deploy.yml |
 | MW-O-003 | Database survives instance loss: Litestream continuous replication + nightly S3 snapshots; restore drill documented | deploy/litestream.yml, deploy/backup_to_s3.sh, docs/DEPLOY.md |
