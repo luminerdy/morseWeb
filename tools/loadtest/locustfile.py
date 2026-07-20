@@ -27,22 +27,28 @@ SHARED = {"cookie": None, "csrf": None}
 
 @events.test_start.add_listener
 def login_once(environment, **kwargs):
+    """Handle the session cookie by hand: it is marked Secure in prod
+    config, so cookie jars rightly refuse to send it over the plain
+    http://127.0.0.1 hop this test uses."""
     host = environment.host.rstrip("/")
-    session = requests.Session()
 
-    page = session.get(f"{host}/login")
+    page = requests.get(f"{host}/login")
     token = re.search(r'name="csrf_token" value="([^"]+)"', page.text).group(1)
-    response = session.post(f"{host}/login", data={
+    anon_cookie = page.cookies.get("session")
+
+    response = requests.post(f"{host}/login", data={
         "identifier": os.environ["LOADTEST_EMAIL"],
         "password": os.environ["LOADTEST_PASSWORD"],
         "csrf_token": token,
-    }, allow_redirects=False)
+    }, headers={"Cookie": f"session={anon_cookie}"}, allow_redirects=False)
     assert response.status_code == 302, f"login failed: {response.status_code}"
+    cookie = response.cookies.get("session") or anon_cookie
 
-    practice = session.get(f"{host}/practice")
+    practice = requests.get(f"{host}/practice",
+                            headers={"Cookie": f"session={cookie}"})
     SHARED["csrf"] = re.search(
         r'name="csrf-token" content="([^"]+)"', practice.text).group(1)
-    SHARED["cookie"] = session.cookies.get("session")
+    SHARED["cookie"] = cookie
 
 
 class Keyer(HttpUser):
