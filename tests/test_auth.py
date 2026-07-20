@@ -11,12 +11,13 @@ from webtest import WebTestCase
 
 
 class SignupAndVerificationTests(WebTestCase):
-    def signup(self, email="new@example.com", password="longenough1"):
+    def signup(self, email="new@example.com", password="longenough1", terms="yes"):
         return self.client.post("/signup", data={
             "name": "New Parent",
             "email": email,
             "password": password,
             "confirm": password,
+            "terms": terms,
         }, follow_redirects=False)
 
     def test_signup_creates_unverified_parent_and_sends_link(self):
@@ -52,6 +53,22 @@ class SignupAndVerificationTests(WebTestCase):
         response = self.signup(password="short")
         self.assertEqual(400, response.status_code)
         self.assertIsNone(storage.get_user_by_email("new@example.com"))
+
+    def test_signup_rejects_absurdly_long_password(self):
+        response = self.signup(password="x" * 300)
+        self.assertEqual(400, response.status_code)
+        self.assertIsNone(storage.get_user_by_email("new@example.com"))
+
+    def test_signup_requires_terms_agreement(self):
+        response = self.signup(terms="")
+        self.assertEqual(400, response.status_code)
+        self.assertIsNone(storage.get_user_by_email("new@example.com"))
+
+    def test_terms_and_privacy_pages_are_public(self):
+        for path in ("/terms", "/privacy"):
+            response = self.client.get(path)
+            self.assertEqual(200, response.status_code, path)
+        self.assertIn(b"parent or legal guardian", self.client.get("/privacy").data)
 
     def test_signup_survives_email_send_failure(self):
         def broken_send(to, subject, body):

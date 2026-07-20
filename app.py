@@ -180,6 +180,16 @@ def practice_prompt_payload(mode):
     }
 
 
+@app.route("/terms")
+def terms():
+    return render_template("terms.html")
+
+
+@app.route("/privacy")
+def privacy():
+    return render_template("privacy.html")
+
+
 @app.route("/healthz")
 def healthz():
     """Deploy and uptime checks: confirms the app and database answer."""

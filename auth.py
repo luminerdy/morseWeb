@@ -32,6 +32,9 @@ RESET_MAX_AGE_SECONDS = 60 * 60 * 2
 ADULT_PASSWORD_MIN = 8
 CHILD_PASSWORD_MIN = 4
 MAX_NAME_CHARS = 60
+MAX_EMAIL_CHARS = 254
+MAX_PASSWORD_CHARS = 256
+MAX_USERNAME_CHARS = 30
 
 
 class User(UserMixin):
@@ -115,11 +118,16 @@ def normalize_email(value):
 
 
 def valid_email(value):
-    return bool(re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", value))
+    return len(value) <= MAX_EMAIL_CHARS and bool(
+        re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", value))
+
+
+def valid_password_length(value, minimum):
+    return minimum <= len(value) <= MAX_PASSWORD_CHARS
 
 
 def normalize_username(value):
-    return re.sub(r"[^a-z0-9-]", "", str(value or "").strip().lower())
+    return re.sub(r"[^a-z0-9-]", "", str(value or "").strip().lower())[:MAX_USERNAME_CHARS]
 
 
 def unique_slug(base):
@@ -133,7 +141,7 @@ def unique_slug(base):
 
 
 @bp.route("/signup", methods=["GET", "POST"])
-@limiter.limit("10 per hour", methods=["POST"])
+@limiter.limit("10 per hour;30 per day", methods=["POST"])
 def signup():
     if request.method == "GET":
         return render_template("signup.html")
@@ -142,16 +150,19 @@ def signup():
     email = normalize_email(request.form.get("email"))
     password = request.form.get("password", "")
     confirm = request.form.get("confirm", "")
+    agreed = request.form.get("terms") == "yes"
 
     error = None
     if not name:
         error = "Please enter your name."
     elif not valid_email(email):
         error = "Please enter a valid email address."
-    elif len(password) < ADULT_PASSWORD_MIN:
-        error = f"Password must be at least {ADULT_PASSWORD_MIN} characters."
+    elif not valid_password_length(password, ADULT_PASSWORD_MIN):
+        error = f"Password must be {ADULT_PASSWORD_MIN}-{MAX_PASSWORD_CHARS} characters."
     elif password != confirm:
         error = "Passwords do not match."
+    elif not agreed:
+        error = "Please agree to the Terms of Service and Privacy Policy."
 
     if error:
         flash(error, "error")
@@ -220,8 +231,8 @@ def login():
     if request.method == "GET":
         return render_template("login.html")
 
-    identifier = str(request.form.get("identifier", "")).strip()
-    password = request.form.get("password", "")
+    identifier = str(request.form.get("identifier", "")).strip()[:MAX_EMAIL_CHARS]
+    password = request.form.get("password", "")[:MAX_PASSWORD_CHARS + 1]
 
     if "@" in identifier:
         user = storage.get_user_by_email(normalize_email(identifier))
@@ -288,8 +299,8 @@ def reset_password(token):
 
     password = request.form.get("password", "")
     confirm = request.form.get("confirm", "")
-    if len(password) < ADULT_PASSWORD_MIN:
-        flash(f"Password must be at least {ADULT_PASSWORD_MIN} characters.", "error")
+    if not valid_password_length(password, ADULT_PASSWORD_MIN):
+        flash(f"Password must be {ADULT_PASSWORD_MIN}-{MAX_PASSWORD_CHARS} characters.", "error")
         return render_template("reset.html", token=token), 400
     if password != confirm:
         flash("Passwords do not match.", "error")

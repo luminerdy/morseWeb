@@ -31,6 +31,13 @@ class FamilyTests(WebTestCase):
         })
         self.assertIsNone(storage.get_user_by_slug("kiddo"))
 
+    def test_child_username_length_capped(self):
+        self.client.post("/family/children", data={
+            "username": "k" * 40, "name": "Kiddo", "password": "dots",
+            "consent": "yes",
+        })
+        self.assertIsNone(storage.get_user_by_slug("k" * 30))
+
     def test_child_logs_in_with_username(self):
         self.add_child()
         child_client = self.app.test_client()

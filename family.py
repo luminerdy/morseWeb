@@ -14,7 +14,8 @@ from werkzeug.security import generate_password_hash
 
 import storage
 from auth import (
-    CHILD_PASSWORD_MIN, MAX_NAME_CHARS, normalize_username, role_required,
+    CHILD_PASSWORD_MIN, MAX_NAME_CHARS, MAX_USERNAME_CHARS,
+    normalize_username, role_required, valid_password_length,
 )
 
 bp = Blueprint("family", __name__, url_prefix="/family")
@@ -49,17 +50,18 @@ def family_home():
 @bp.route("/children", methods=["POST"])
 @role_required("parent", "admin")
 def add_child():
-    username = normalize_username(request.form.get("username"))
+    submitted_username = str(request.form.get("username", "")).strip()
+    username = normalize_username(submitted_username)
     name = str(request.form.get("name", "")).strip()[:MAX_NAME_CHARS]
     password = request.form.get("password", "")
     consent = request.form.get("consent") == "yes"
 
     error = None
-    if not username:
-        error = "Please choose a username (letters, numbers, dashes)."
+    if not username or len(submitted_username) > MAX_USERNAME_CHARS:
+        error = f"Please choose a username of up to {MAX_USERNAME_CHARS} letters, numbers, or dashes."
     elif not name:
         error = "Please enter the child's display name."
-    elif len(password) < CHILD_PASSWORD_MIN:
+    elif not valid_password_length(password, CHILD_PASSWORD_MIN):
         error = f"Password must be at least {CHILD_PASSWORD_MIN} characters."
     elif not consent:
         error = "Parent consent is required to create a child account."
@@ -90,7 +92,7 @@ def add_child():
 def reset_child_password(child_id):
     child = _own_child_or_404(child_id)
     password = request.form.get("password", "")
-    if len(password) < CHILD_PASSWORD_MIN:
+    if not valid_password_length(password, CHILD_PASSWORD_MIN):
         flash(f"Password must be at least {CHILD_PASSWORD_MIN} characters.", "error")
     else:
         storage.update_user(child["id"], password_hash=generate_password_hash(password))

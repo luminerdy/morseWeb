@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Privacy Policy{% endblock %}
+{% block heading %}Privacy Policy{% endblock %}
+{% block content %}
+    <section class="panel legal-panel">
+        <p class="panel-meta">Last updated: July 19, 2026</p>
+
+        <h2>What we collect</h2>
+        <p>For adult (parent) accounts: your name, email address, and a hashed
+        password. For child accounts: a display name and username chosen by the
+        parent, a hashed password, and no email address. For everyone: Morse
+        practice data - attempts, scores, and key-timing rhythm measurements -
+        so the app can track learning progress. Standard server logs (IP
+        address, request time) are kept briefly for security and debugging.</p>
+
+        <h2>Children's accounts (COPPA)</h2>
+        <p>Child accounts can only be created by a parent or legal guardian
+        from their own account, and creation requires the parent to check a
+        consent statement, which we record with a timestamp. We collect no
+        email address, phone number, or other contact information from
+        children - only the username and display name the parent chose and the
+        child's practice data. Parents can review their children's activity,
+        change their passwords, pause their accounts, or ask us to delete
+        their data entirely at any time. We do not condition a child's use of
+        the service on disclosing more information than is reasonably
+        necessary.</p>
+
+        <h2>What we do NOT do</h2>
+        <p>No advertising, no analytics trackers, no selling or sharing of
+        data with third parties, no marketing email. The only emails we send
+        are the ones you trigger: account verification and password resets
+        (delivered via Amazon SES).</p>
+
+        <h2>Where data lives</h2>
+        <p>Data is stored on a server and backups hosted with Amazon Web
+        Services in the United States. Passwords are stored only as salted
+        hashes. The site is served over HTTPS.</p>
+
+        <h2>Retention and deletion</h2>
+        <p>Practice data is kept while the account exists so progress works.
+        To delete an account and its data - yours or a child's - email
+        <a href="mailto:scott@moelling.net">scott@moelling.net</a> from the
+        account's parent email and we will remove it within 30 days. Backups
+        age out on a rolling schedule after deletion.</p>
+
+        <h2>Cookies</h2>
+        <p>One session cookie, used only to keep you logged in and to protect
+        forms against cross-site request forgery. No tracking cookies.</p>
+
+        <h2>Changes and contact</h2>
+        <p>If this policy changes, the date above changes with it, and
+        material changes affecting children's data will require fresh parent
+        consent. Questions or requests:
+        <a href="mailto:scott@moelling.net">scott@moelling.net</a>.</p>
+    </section>
+{% endblock %}
