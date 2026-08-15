@@ -103,6 +103,7 @@ systemctl daemon-reload
 systemctl enable --now morseweb litestream morseweb-backup.timer morseweb-5xx.timer morseweb-purge-demo.timer
 
 echo "== nginx =="
+cp "$APP_DIR/deploy/nginx-rate-limits.conf" /etc/nginx/conf.d/morseweb-rate-limits.conf
 sed "s/YOUR_DOMAIN/${DOMAIN}/g" "$APP_DIR/deploy/nginx-morseweb.conf" \
     > /etc/nginx/sites-available/morseweb
 ln -sf /etc/nginx/sites-available/morseweb /etc/nginx/sites-enabled/morseweb
