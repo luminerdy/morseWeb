@@ -153,6 +153,29 @@ sudo -u morseweb /opt/morseweb/venv/bin/python \
   morseweb-backup.timer`).
 - Uptime checks and 5xx alarms are Phase 4 scope.
 
+## Request-rate protection
+
+Flask-Limiter (extensions.py) only guards signup/login/reset/demo; it
+has no `default_limits`, so the practice/progress routes that do the
+real work were unthrottled. nginx now rate-limits every proxied
+request ahead of gunicorn: `deploy/nginx-rate-limits.conf` (installed
+to `/etc/nginx/conf.d/`) declares the zones, `deploy/nginx-morseweb.conf`
+applies `limit_req zone=morseweb_general burst=20 nodelay;` and
+`limit_conn morseweb_perip 20;` to the proxied `location /`. A flood -
+organic or abusive - gets a 429 from nginx before it can reach the app
+or SQLite, at no added AWS cost (EC2 is billed at a fixed hourly rate
+regardless of request volume; there is no auto-scaling to run away).
+
+Verified 2026-08-15: 40 rapid local requests to /healthz returned 26
+`200`s and 14 `429`s, confirming the limit fires without needing to
+touch a byte of app code.
+
+If you ever change the domain/rate-limit values by hand-editing the
+live `/etc/nginx/sites-available/morseweb` (as happens after certbot
+merges the HTTP and HTTPS server blocks), keep the four `limit_req`/
+`limit_conn` lines in the proxied `location /` block - certbot's own
+edits don't touch them, but a careless full-file overwrite would.
+
 ## Load capacity and the Postgres trigger
 
 Phase 4 load test (2026-07-19, tools/loadtest/locustfile.py, run on
