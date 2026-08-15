@@ -57,3 +57,4 @@ Added per phase; behavior is specified by the regression test bank in `tests/`.
 | MW-O-003 | Database survives instance loss: Litestream continuous replication + nightly S3 snapshots; restore drill documented | deploy/litestream.yml, deploy/backup_to_s3.sh, docs/DEPLOY.md |
 | MW-D-005 | Anonymous visitors can practice via /demo without an account (no email/password); real accounts and login are unaffected | tests/test_demo.py |
 | MW-D-006 | Demo accounts and their data are purged after a retention window; excluded from the admin user list | tests/test_demo.py, scripts/purge_demo_data.py |
+| MW-S-006 | Every proxied request is rate-limited at nginx (ahead of gunicorn), independent of Flask-Limiter's auth-only coverage | deploy/nginx-rate-limits.conf, docs/DEPLOY.md |

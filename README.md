@@ -21,6 +21,7 @@ Accounts:
 - Parents create **student** accounts for kids from the Family page - username + password, no child email, with a recorded parent-consent checkbox (the COPPA piece from the project plan).
 - The **admin** dashboard (usage view, per-student reset with automatic backup) is granted with `python3 scripts/make_admin.py you@example.com` after signing up.
 - Every query is scoped to the logged-in user; CSRF protection and auth rate limits are on. Set `MORSEWEB_SECRET_KEY` (and `MORSEWEB_SECURE_COOKIES=1` behind HTTPS) in production.
+- nginx rate-limits every request ahead of gunicorn (`deploy/nginx-rate-limits.conf`) - a flood gets a 429 before it can reach the app or SQLite, independent of Flask-Limiter's auth-only routes.
 
 Data lives in `data/morseweb.sqlite3`; a Phase 1 database is migrated in place on first run. To bring over progress from a morsePi station:
 
