@@ -13,7 +13,7 @@ from functools import wraps
 
 from flask import (
     Blueprint, abort, current_app, flash, redirect, render_template,
-    request, url_for,
+    request, session, url_for,
 )
 from flask_login import UserMixin, current_user, login_required, login_user, logout_user
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
@@ -65,6 +65,21 @@ def load_user(user_id):
     if row is None or not row["is_active"]:
         return None
     return User(row)
+
+
+def demo_or_login_required(view):
+    """Allow a real login OR an active no-signup demo session.
+
+    Falls through to Flask-Login's own unauthorized handling (redirect
+    to login_view) when neither applies, so this is a drop-in
+    replacement for @login_required on the practice/progress routes.
+    """
+    @wraps(view)
+    def wrapped(*args, **kwargs):
+        if current_user.is_authenticated or session.get("demo_user_id"):
+            return view(*args, **kwargs)
+        return login_manager.unauthorized()
+    return wrapped
 
 
 def role_required(*roles):

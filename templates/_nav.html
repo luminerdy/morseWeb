@@ -13,6 +13,10 @@
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <button type="submit" class="nav-logout">Log out ({{ current_user.name }})</button>
         </form>
+    {% elif session.demo_user_id %}
+        <a href="/practice">Practice</a>
+        <a href="/progress">Progress</a>
+        <a href="/signup">Sign up to save progress</a>
     {% else %}
         <a href="/login">Log in</a>
         <a href="/signup">Sign up</a>

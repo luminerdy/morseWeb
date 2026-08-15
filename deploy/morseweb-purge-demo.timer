@@ -1,0 +1,9 @@
+[Unit]
+Description=morseWeb demo account purge every 6 hours
+
+[Timer]
+OnBootSec=15min
+OnUnitActiveSec=6h
+
+[Install]
+WantedBy=timers.target

@@ -28,7 +28,8 @@ def admin_home():
     for user in users:
         user["usage"] = storage.user_usage(user["id"])
         user["backups"] = storage.list_backups(user["id"])
-    return render_template("admin.html", users=users)
+    return render_template(
+        "admin.html", users=users, demo_count=storage.count_demo_users())
 
 
 @bp.route("/users/<int:user_id>/reset", methods=["POST"])

@@ -25,6 +25,28 @@
 
         <main class="dashboard-grid">
             {% include "_flash.html" %}
+            {% include "_demo_banner.html" %}
+
+            {% if not current_user.is_authenticated and not session.demo_user_id %}
+                <section class="panel try-demo-panel">
+                    <div class="section-heading">
+                        <h2>New here?</h2>
+                        <span class="panel-meta">No signup needed</span>
+                    </div>
+
+                    <p class="score-goal">
+                        Try the full practice experience right now - Learn, Send,
+                        Read, Listen, and Echo modes, no account required. Sign up
+                        later to keep your progress.
+                    </p>
+
+                    <form method="post" action="/demo">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="button primary full-width">Try It Now - No Signup</button>
+                    </form>
+                </section>
+            {% endif %}
+
             <section class="panel compose-panel">
                 <div class="section-heading">
                     <h2>Message</h2>

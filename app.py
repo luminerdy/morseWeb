@@ -21,7 +21,7 @@ In production this module is served by gunicorn (see deploy/).
 
 import os
 
-from flask import Flask, jsonify, redirect, render_template, request, url_for
+from flask import Flask, jsonify, redirect, render_template, request, session, url_for
 from werkzeug.middleware.proxy_fix import ProxyFix
 from flask_login import current_user, login_required
 
@@ -81,6 +81,7 @@ login_manager.login_message = "Please log in first."
 import admin as admin_module
 import auth as auth_module
 import family as family_module
+from auth import demo_or_login_required
 
 app.register_blueprint(auth_module.bp)
 app.register_blueprint(family_module.bp)
@@ -94,9 +95,12 @@ MAX_WORD_CHARS = 20
 @app.before_request
 def scope_storage_to_current_user():
     """Every document/attempt query in this request belongs to the
-    logged-in user; no cross-request state."""
+    logged-in user, or to the session's demo user if there is one; no
+    cross-request state."""
     if current_user.is_authenticated:
         storage.set_current_user(current_user.id)
+    elif session.get("demo_user_id"):
+        storage.set_current_user(session["demo_user_id"])
     else:
         storage.clear_current_user()
 
@@ -112,7 +116,11 @@ def get_practice_mode():
 
 
 def attempt_metadata():
-    return {"student_id": current_user.slug}
+    # storage.current_user_id() reflects the login OR demo session set
+    # in before_request, so this works for both without depending on
+    # Flask-Login's current_user (anonymous for demo visitors).
+    user = storage.get_user(storage.current_user_id())
+    return {"student_id": user["slug"] if user else "anonymous"}
 
 
 def safe_next_url(default_endpoint="practice", **default_values):
@@ -219,8 +227,25 @@ def index():
     )
 
 
+@app.route("/demo", methods=["POST"])
+@limiter.limit("20 per hour")
+def start_demo():
+    """No-signup try-it flow: an ephemeral account scoped to this
+    browser session. Reuses one demo user across reloads instead of
+    minting a new one each time; purge_demo_users sweeps them later."""
+    if current_user.is_authenticated:
+        return redirect(url_for("practice"))
+
+    demo_id = session.get("demo_user_id")
+    demo_user = storage.get_user(demo_id) if demo_id else None
+    if demo_user is None or demo_user["role"] != "demo" or not demo_user["is_active"]:
+        session["demo_user_id"] = storage.create_demo_user()
+
+    return redirect(url_for("practice"))
+
+
 @app.route("/timing-settings", methods=["POST"])
-@login_required
+@demo_or_login_required
 def timing_settings():
     save_morse_timing_settings({
         "character_wpm": request.form.get("character_wpm"),
@@ -231,13 +256,13 @@ def timing_settings():
 
 
 @app.route("/practice")
-@login_required
+@demo_or_login_required
 def practice():
     return render_practice_template("practice.html")
 
 
 @app.route("/practice/new", methods=["POST"])
-@login_required
+@demo_or_login_required
 def practice_new():
     mode = get_practice_mode()
     choose_new_practice_target(mode)
@@ -245,7 +270,7 @@ def practice_new():
 
 
 @app.route("/practice/next", methods=["POST"])
-@login_required
+@demo_or_login_required
 def practice_next():
     mode = get_practice_mode()
     choose_new_practice_target(mode)
@@ -253,7 +278,7 @@ def practice_next():
 
 
 @app.route("/practice/retry", methods=["POST"])
-@login_required
+@demo_or_login_required
 def practice_retry():
     mode = get_practice_mode()
     practice_letters = get_practice_letters_for_mode(mode)
@@ -265,7 +290,7 @@ def practice_retry():
 
 
 @app.route("/practice/result", methods=["POST"])
-@login_required
+@demo_or_login_required
 def practice_result():
     data = request.get_json(silent=True) or {}
     letter = limited_text(data.get("target", get_practice_target()), 1).upper()
@@ -320,7 +345,7 @@ def practice_result():
 
 
 @app.route("/words/result", methods=["POST"])
-@login_required
+@demo_or_login_required
 def words_result():
     data = request.get_json(silent=True) or {}
     word = limited_text(data.get("word", ""), MAX_WORD_CHARS).upper()
@@ -357,7 +382,7 @@ def words_result():
 
 
 @app.route("/bonus/next", methods=["POST"])
-@login_required
+@demo_or_login_required
 def bonus_next():
     target = choose_bonus_sprint_target()
 
@@ -369,7 +394,7 @@ def bonus_next():
 
 
 @app.route("/bonus/result", methods=["POST"])
-@login_required
+@demo_or_login_required
 def bonus_result():
     data = request.get_json(silent=True) or {}
     session_id = str(data.get("session_id", "")).strip()
@@ -410,7 +435,7 @@ def bonus_result():
 
 
 @app.route("/progress")
-@login_required
+@demo_or_login_required
 def progress():
     mode = get_practice_mode()
     practice_letters = get_unlocked_practice_letters()

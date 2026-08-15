@@ -1156,3 +1156,20 @@ input[type="range"] + .button {
 .site-footer a {
     color: var(--muted);
 }
+
+/* --- No-signup demo mode --------------------------------------------- */
+
+.demo-banner {
+    padding: 14px 18px;
+    border: 1px solid var(--warning-border);
+    background: var(--warning-bg);
+    color: var(--text);
+}
+
+.demo-banner a {
+    font-weight: bold;
+}
+
+.try-demo-panel {
+    border-color: var(--primary);
+}

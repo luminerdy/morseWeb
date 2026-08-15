@@ -5,7 +5,7 @@
     <section class="panel">
         <div class="section-heading">
             <h2>All Users</h2>
-            <span class="panel-meta">{{ users | length }} accounts</span>
+            <span class="panel-meta">{{ users | length }} accounts &middot; {{ demo_count }} demo session{{ '' if demo_count == 1 else 's' }} (auto-purged after 24h)</span>
         </div>
 
         <table class="admin-table">

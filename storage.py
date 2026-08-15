@@ -17,18 +17,22 @@ this file.
 """
 
 import json
+import secrets
 import sqlite3
 import threading
 from contextlib import contextmanager
 from contextvars import ContextVar
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 DB_PATH = Path(__file__).resolve().parent / "data" / "morseweb.sqlite3"
 DEFAULT_USER_SLUG = "operator"
 DEFAULT_USER_NAME = "Operator"
 
-ROLES = ("admin", "parent", "student")
+# "demo" is an anonymous, throwaway account for the no-signup try-it
+# flow (Phase 4): no email/password, purged by purge_demo_users after
+# a short retention window. See create_demo_user.
+ROLES = ("admin", "parent", "student", "demo")
 
 _lock = threading.Lock()
 _initialized_paths = set()
@@ -245,10 +249,52 @@ def list_children(parent_id):
     return [dict(row) for row in rows]
 
 
-def list_users():
+def list_users(include_demo=False):
+    query = "SELECT * FROM users"
+    if not include_demo:
+        query += " WHERE role != 'demo'"
+    query += " ORDER BY created_at"
     with _connect() as conn:
-        rows = conn.execute("SELECT * FROM users ORDER BY created_at").fetchall()
+        rows = conn.execute(query).fetchall()
     return [dict(row) for row in rows]
+
+
+def create_demo_user():
+    """An anonymous, no-signup account for the try-it-now flow.
+
+    No email or password: it can only be reached through the active
+    browser session that created it, and purge_demo_users sweeps it
+    (and its documents/attempts) after a short retention window.
+    """
+    return create_user(slug=f"demo-{secrets.token_urlsafe(8)}", name="Guest", role="demo")
+
+
+def count_demo_users():
+    with _connect() as conn:
+        return conn.execute(
+            "SELECT COUNT(*) AS n FROM users WHERE role = 'demo'").fetchone()["n"]
+
+
+def purge_demo_users(older_than_hours=24):
+    """Delete demo accounts (and their data) past the retention window.
+
+    Demo sessions are meant to be throwaway; this keeps them from
+    accumulating in the database indefinitely. Run on a timer, not
+    per-request, since demo browsing doesn't touch this.
+    """
+    cutoff = (datetime.now(timezone.utc) - timedelta(hours=older_than_hours)).isoformat()
+    with _connect() as conn:
+        rows = conn.execute(
+            "SELECT id FROM users WHERE role = 'demo' AND created_at < ?",
+            (cutoff,),
+        ).fetchall()
+        ids = [row["id"] for row in rows]
+        for user_id in ids:
+            conn.execute("DELETE FROM documents WHERE user_id = ?", (user_id,))
+            conn.execute("DELETE FROM attempts WHERE user_id = ?", (user_id,))
+            conn.execute("DELETE FROM progress_backups WHERE user_id = ?", (user_id,))
+            conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
+        return len(ids)
 
 
 def user_usage(user_id):

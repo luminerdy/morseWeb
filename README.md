@@ -6,6 +6,8 @@ A web-based Morse code learning app, derived from [morsePi](https://github.com/l
 
 Running at **https://morse.luminerdy.com**. On top of the Phase 2 accounts and Phase 3 AWS deployment: Terms/Privacy pages with COPPA parent-consent language, signup agreement + rate caps, input-validation caps everywhere, `pip-audit` in CI, a passing 50-concurrent-keyer load test (p95 75ms on t4g.small + SQLite), and email alerts for site-down/5xx/backup failures. See [deploy/](deploy/) and [docs/DEPLOY.md](docs/DEPLOY.md). Roadmap: [docs/PROJECT_PLAN.md](docs/PROJECT_PLAN.md) (Phase 5: growth ideas).
 
+**No-signup demo:** the home page has a "Try It Now" button that starts an anonymous practice session (`/demo`) - full Learn/Send/Read/Listen/Echo experience, no account, no email. It's an ephemeral account (no password, can't be logged back into) purged automatically after 24 hours; real accounts and login are unaffected.
+
 ```
 pip install -r requirements.txt
 python3 app.py

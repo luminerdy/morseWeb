@@ -1,0 +1,11 @@
+# Oneshot demo-account cleanup, triggered by morseweb-purge-demo.timer.
+
+[Unit]
+Description=morseWeb demo account purge
+
+[Service]
+Type=oneshot
+User=morseweb
+Group=morseweb
+WorkingDirectory=/opt/morseweb/app
+ExecStart=/opt/morseweb/venv/bin/python scripts/purge_demo_data.py --hours 24

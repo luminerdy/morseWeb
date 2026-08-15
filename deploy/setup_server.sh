@@ -89,6 +89,8 @@ cp "$APP_DIR/deploy/morseweb-backup.timer" /etc/systemd/system/morseweb-backup.t
 cp "$APP_DIR/deploy/morseweb-backup-alert.service" /etc/systemd/system/morseweb-backup-alert.service
 cp "$APP_DIR/deploy/morseweb-5xx.service" /etc/systemd/system/morseweb-5xx.service
 cp "$APP_DIR/deploy/morseweb-5xx.timer" /etc/systemd/system/morseweb-5xx.timer
+cp "$APP_DIR/deploy/morseweb-purge-demo.service" /etc/systemd/system/morseweb-purge-demo.service
+cp "$APP_DIR/deploy/morseweb-purge-demo.timer" /etc/systemd/system/morseweb-purge-demo.timer
 echo "BUCKET=${BUCKET}" > /etc/morseweb/backup-env
 # Alerts need an SNS topic; pass SNS_TOPIC_ARN=... to enable them.
 if [ -n "${SNS_TOPIC_ARN:-}" ]; then
@@ -98,7 +100,7 @@ elif [ ! -f /etc/morseweb/monitor-env ]; then
     printf 'SNS_TOPIC_ARN=\nAWS_REGION=%s\n' "$AWS_REGION" > /etc/morseweb/monitor-env
 fi
 systemctl daemon-reload
-systemctl enable --now morseweb litestream morseweb-backup.timer morseweb-5xx.timer
+systemctl enable --now morseweb litestream morseweb-backup.timer morseweb-5xx.timer morseweb-purge-demo.timer
 
 echo "== nginx =="
 sed "s/YOUR_DOMAIN/${DOMAIN}/g" "$APP_DIR/deploy/nginx-morseweb.conf" \

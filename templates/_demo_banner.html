@@ -1,0 +1,7 @@
+{% if session.demo_user_id and not current_user.is_authenticated %}
+    <section class="panel demo-banner">
+        <strong>Demo mode</strong> - practicing without an account. Progress
+        here is temporary and gets cleared.
+        <a href="/signup">Sign up</a> to keep it and unlock Family accounts for kids.
+    </section>
+{% endif %}
