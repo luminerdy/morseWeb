@@ -29,6 +29,7 @@ import learning
 import storage
 from extensions import csrf, limiter, login_manager
 from learning import (
+    adaptive_word_practice_item,
     available_word_practice_words,
     bonus_sprint_summary,
     choose_bonus_sprint_target,
@@ -342,6 +343,26 @@ def practice_result():
         "score": practice_mode_score(practice_letters, mode),
         "overall": get_learning_overall(practice_letters),
     })
+
+
+@app.route("/words/next", methods=["POST"])
+@demo_or_login_required
+def words_next():
+    data = request.get_json(silent=True) or {}
+    requested_word = limited_text(data.get("word", ""), MAX_WORD_CHARS)
+    phase = data.get("phase", 0)
+
+    try:
+        phase = int(phase)
+    except (TypeError, ValueError):
+        phase = 0
+
+    item = adaptive_word_practice_item(requested_word=requested_word, phase=phase)
+
+    if item is None:
+        return jsonify({"status": "locked"}), 400
+
+    return jsonify({"status": "ok", **item})
 
 
 @app.route("/words/result", methods=["POST"])

@@ -35,6 +35,7 @@ Added per phase; behavior is specified by the regression test bank in `tests/`.
 | MW-F-008 | Attempts against locked letters are ignored | tests/test_routes.py |
 | MW-F-009 | Per-user Farnsworth timing settings persist and are clamped to safe ranges | tests/test_routes.py |
 | MW-F-010 | Word practice unlocks only after S/O gate; words are decoded and logged | tests/test_routes.py |
+| MW-F-011 | Word bank covers all three unlock tiers (80 words); server-selected /words/next favors unfinished words with spaced review of completed ones, ported from morsePi | tests/test_word_practice.py |
 | MW-D-001 | All storage is SQLite; attempts preserve raw key-timing events | tests/test_routes.py, storage.py |
 | MW-D-002 | Data is isolated per user in every query; no cross-request user state | tests/test_isolation.py |
 | MW-D-003 | morsePi student data imports losslessly | scripts/import_morsepi_data.py |

@@ -81,8 +81,19 @@ word_practice_bank = [
     "EAT", "SAT", "SIT", "SET", "SEE", "SEA", "TEA", "TEN", "NET", "MEN",
     "MET", "MAT", "MAN", "SON", "NOT", "TOO", "ANT", "MOM", "MINE", "NAME",
     "MEAN", "MEAT", "MOON", "SOON", "TEAM", "TONE", "NOTE", "SEAT", "STEM",
-    "STONE"
+    "STONE",
+    # D/U tier, ported from morsePi (verified against its app.py source).
+    "AND", "END", "SAD", "SUN", "RUN", "RED", "KID", "MUD", "TUNE", "DUNE",
+    "SEND", "SAND", "SOUND", "ROUND",
+    # C/W/H/L tier, ported from morsePi.
+    "COW", "HOW", "LOW", "LAW", "CALL", "WALL", "WELL", "HILL", "COOL",
+    "COLD", "HOLD", "DUCK", "LUCK", "LOCK", "ROCK", "ROLL", "TELL",
+    "HELLO", "WORLD", "WORD", "CODE", "HOME", "HOUSE", "CLOCK"
 ]
+# Cycle used by adaptive_word_practice_item to alternate between
+# surfacing not-yet-completed words and spaced review of completed
+# ones, weighted toward "unfinished" (ported from morsePi).
+word_practice_phases = ("unfinished", "unfinished", "unfinished", "review", "review")
 
 MAX_MORSE_CHARS = 600
 
@@ -1007,6 +1018,9 @@ def word_practice_item(index=0, active_letters=None):
         "morse": text_to_morse(word),
         "index": normalized_index,
         "next_index": (normalized_index + 1) % len(words),
+        "phase": normalized_index % len(word_practice_phases),
+        "next_phase": (normalized_index + 1) % len(word_practice_phases),
+        "next_word": words[(normalized_index + 1) % len(words)],
         "total": len(words),
         "letters": [
             {
@@ -1020,6 +1034,105 @@ def word_practice_item(index=0, active_letters=None):
 
 def load_word_attempts():
     return load_attempt_records("word")
+
+
+def completed_word_practice_words(attempts=None):
+    """Words the current user has ever answered correctly (ported from
+    morsePi; adapted to morseWeb's storage-backed load_word_attempts)."""
+    attempts = load_word_attempts() if attempts is None else attempts
+    return {
+        str(attempt.get("word", "")).upper()
+        for attempt in attempts
+        if attempt.get("correct") and attempt.get("word")
+    }
+
+
+def ranked_word_practice_reviews(words, attempts=None):
+    """Completed words ordered weakest-first (lowest accuracy, then
+    fewest attempts, then bank position) so review favors the words
+    that need it most."""
+    attempts = load_word_attempts() if attempts is None else attempts
+    available = set(words)
+    stats = {word: {"attempts": 0, "correct": 0} for word in words}
+
+    for attempt in attempts:
+        word = str(attempt.get("word", "")).upper()
+        if word not in available:
+            continue
+        stats[word]["attempts"] += 1
+        if attempt.get("correct"):
+            stats[word]["correct"] += 1
+
+    completed = completed_word_practice_words(attempts) & available
+    bank_order = {word: index for index, word in enumerate(word_practice_bank)}
+
+    def review_rank(word):
+        record = stats[word]
+        accuracy = record["correct"] / record["attempts"] if record["attempts"] else 0
+        return accuracy, record["attempts"], bank_order.get(word, len(word_practice_bank))
+
+    return sorted(completed, key=review_rank)
+
+
+def select_word_practice_candidate(phase, unfinished, reviews, current_word=""):
+    phase = int(phase) % len(word_practice_phases)
+    if word_practice_phases[phase] == "unfinished":
+        preferred, fallback = unfinished, reviews
+    else:
+        preferred, fallback = reviews, unfinished
+    candidates = preferred or fallback
+
+    if not candidates:
+        return ""
+    if current_word in candidates and len(candidates) > 1:
+        return candidates[(candidates.index(current_word) + 1) % len(candidates)]
+    return candidates[0]
+
+
+def adaptive_word_practice_item(requested_word="", phase=0, active_letters=None, attempts=None):
+    """Server-selected next word: mostly unfinished words, with review
+    passes over completed ones mixed in via word_practice_phases.
+    Ported from morsePi's app.py, unchanged apart from sourcing
+    attempts from morseWeb's per-user storage."""
+    words = available_word_practice_words(active_letters)
+
+    if not words:
+        return None
+
+    attempts = load_word_attempts() if attempts is None else attempts
+    completed = completed_word_practice_words(attempts)
+    unfinished = [word for word in words if word not in completed]
+    reviews = ranked_word_practice_reviews(words, attempts)
+    normalized_phase = int(phase) % len(word_practice_phases)
+    requested_word = str(requested_word or "").strip().upper()
+    word = requested_word if requested_word in words else select_word_practice_candidate(
+        normalized_phase,
+        unfinished,
+        reviews,
+    )
+    next_phase = (normalized_phase + 1) % len(word_practice_phases)
+    next_word = select_word_practice_candidate(
+        next_phase,
+        unfinished,
+        reviews,
+        current_word=word,
+    )
+
+    return {
+        "word": word,
+        "morse": text_to_morse(word),
+        "phase": normalized_phase,
+        "next_phase": next_phase,
+        "next_word": next_word or word,
+        "total": len(words),
+        "letters": [
+            {
+                "letter": letter,
+                "morse": text_to_morse(letter),
+            }
+            for letter in word
+        ],
+    }
 
 
 def _unused_load_word_attempts():

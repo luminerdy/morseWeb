@@ -8,6 +8,8 @@ Running at **https://morse.luminerdy.com**. On top of the Phase 2 accounts and P
 
 **No-signup demo:** the home page has a "Try It Now" button that starts an anonymous practice session (`/demo`) - full Learn/Send/Read/Listen/Echo experience, no account, no email. It's an ephemeral account (no password, can't be logged back into) purged automatically after 24 hours; real accounts and login are unaffected.
 
+**Word practice:** the bank now covers all three unlock tiers (80 words, ported from morsePi) and `/words/next` server-selects the next word - mostly unfinished words, with spaced review of completed ones mixed in. Note: this is backend-only today. No template renders a word-practice panel yet, so the feature isn't reachable in the UI - `word_practice_item`/`adaptive_word_practice_item` and the `/words/*` routes are ready for whenever that page gets built.
+
 ```
 pip install -r requirements.txt
 python3 app.py
