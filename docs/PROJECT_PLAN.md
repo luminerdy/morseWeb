@@ -72,13 +72,31 @@ Exit criteria: a stranger can sign up, a parent can add a child, and abuse vecto
 
 ## Phase 5 — Growth and morsePi convergence (ongoing)
 
-Ideas, in rough priority order — pick per interest:
+Ideas, in rough priority order — pick per interest. morsePi has since
+built working reference implementations of the first two (checked
+2026-08-15, github.com/luminerdy/morsePi specs/STATUS.md) - worth
+reviewing its approach before designing morseWeb's version rather than
+starting from scratch:
 
-- Family/friend messaging: send real Morse messages between users (the original telegraph spirit).
-- Pi station sync: grandkid stations upload progress to morseWeb via the S3/IoT channel you already designed, so web and station share one progress record.
-- Rhythm Trends and coaching from the timing events collected in Phase 1.
+- Family/friend messaging: send real Morse messages between users (the
+  original telegraph spirit). morsePi has local composition/validation/
+  playback plus a "Message Word Bank" with drafts (Phase 7A), and
+  durable cross-station delivery with receipts over S3/Lambda
+  (Phase 7B) - a concrete precedent for how routing and receipts could
+  work between morseWeb accounts, or between morseWeb and a Pi station.
+- Pi station sync: grandkid stations upload progress to morseWeb via
+  the S3/IoT channel you already designed, so web and station share
+  one progress record. morsePi has since built an AWS IoT Jobs
+  remote-update foundation (live on one station) and a read-only
+  family progress view - both relevant scaffolding for this.
+- Rhythm Trends and coaching from the timing events collected in
+  Phase 1.
 - Leaderboards/classroom mode if usage grows.
-- Extract shared Morse/learning logic into a package both morsePi and morseWeb import (only when double-maintenance actually hurts).
+- Extract shared Morse/learning logic into a package both morsePi and
+  morseWeb import (only when double-maintenance actually hurts). The
+  word bank/adaptive-rotation port done in v0.6.0 (2026-08-15) is
+  exactly the kind of duplicated logic this would eliminate - a
+  concrete first candidate if this ever gets prioritized.
 
 ---
 
